@@ -21,3 +21,4 @@ export { extractionJobs } from "./extraction-jobs";
 export { warmupConfigs } from "./warmup-configs";
 export { auditLogs } from "./audit-logs";
 export { messageTemplates } from "./message-templates";
+export { notifications } from "./notifications";
