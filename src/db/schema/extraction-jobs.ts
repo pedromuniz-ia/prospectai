@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 
 export const extractionJobs = sqliteTable("extraction_jobs", {
   id: text("id")
@@ -8,7 +8,7 @@ export const extractionJobs = sqliteTable("extraction_jobs", {
     .$defaultFn(() => createId()),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organization.id),
   type: text("type", {
     enum: ["apify_gmaps", "rdap_whois", "website_check"],
   }).notNull(),

@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 
 export const scoringRules = sqliteTable("scoring_rules", {
   id: text("id")
@@ -8,7 +8,7 @@ export const scoringRules = sqliteTable("scoring_rules", {
     .$defaultFn(() => createId()),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organization.id),
   objective: text("objective", {
     enum: ["sell_website", "sell_ai_agent", "sell_optimization", "global"],
   }).notNull(),

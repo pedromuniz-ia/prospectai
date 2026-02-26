@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 
 export const leads = sqliteTable(
   "leads",
@@ -10,7 +10,7 @@ export const leads = sqliteTable(
       .$defaultFn(() => createId()),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organizations.id),
+      .references(() => organization.id),
 
     // Raw data (extraction)
     name: text("name").notNull(),

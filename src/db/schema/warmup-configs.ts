@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 import { whatsappInstances } from "./whatsapp-instances";
 
 export const warmupConfigs = sqliteTable("warmup_configs", {
@@ -12,7 +12,7 @@ export const warmupConfigs = sqliteTable("warmup_configs", {
     .references(() => whatsappInstances.id),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organization.id),
   currentDay: integer("current_day").notNull().default(1),
   currentDailyLimit: integer("current_daily_limit").notNull().default(10),
   warmupCompleted: integer("warmup_completed", { mode: "boolean" })

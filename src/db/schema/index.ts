@@ -1,4 +1,15 @@
-export { organizations } from "./organizations";
+// Better Auth tables
+export {
+  user,
+  session,
+  account,
+  verification,
+  organization,
+  member,
+  invitation,
+} from "./auth";
+
+// App tables
 export { whatsappInstances } from "./whatsapp-instances";
 export { leads } from "./leads";
 export { campaigns } from "./campaigns";

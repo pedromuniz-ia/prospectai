@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 import { leads } from "./leads";
 import { campaignLeads } from "./campaign-leads";
 import { whatsappInstances } from "./whatsapp-instances";
@@ -13,7 +13,7 @@ export const messages = sqliteTable(
       .$defaultFn(() => createId()),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organizations.id),
+      .references(() => organization.id),
     leadId: text("lead_id")
       .notNull()
       .references(() => leads.id),

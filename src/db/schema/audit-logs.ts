@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 
 export const auditLogs = sqliteTable(
   "audit_logs",
@@ -10,7 +10,7 @@ export const auditLogs = sqliteTable(
       .$defaultFn(() => createId()),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organizations.id),
+      .references(() => organization.id),
     userId: text("user_id"),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),

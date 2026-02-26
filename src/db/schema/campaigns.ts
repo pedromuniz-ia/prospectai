@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 import { whatsappInstances } from "./whatsapp-instances";
 import { aiProviders } from "./ai-providers";
 
@@ -10,7 +10,7 @@ export const campaigns = sqliteTable("campaigns", {
     .$defaultFn(() => createId()),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organization.id),
   name: text("name").notNull(),
   objective: text("objective", {
     enum: [

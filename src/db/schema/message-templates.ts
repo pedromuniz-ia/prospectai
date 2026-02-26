@@ -5,7 +5,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 
 export const messageTemplates = sqliteTable(
   "message_templates",
@@ -15,7 +15,7 @@ export const messageTemplates = sqliteTable(
       .$defaultFn(() => createId()),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organizations.id),
+      .references(() => organization.id),
     shortcut: text("shortcut").notNull(),
     title: text("title").notNull(),
     content: text("content").notNull(),

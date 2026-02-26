@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 
 export const aiProviders = sqliteTable("ai_providers", {
   id: text("id")
@@ -8,7 +8,7 @@ export const aiProviders = sqliteTable("ai_providers", {
     .$defaultFn(() => createId()),
   organizationId: text("organization_id")
     .notNull()
-    .references(() => organizations.id),
+    .references(() => organization.id),
   provider: text("provider", {
     enum: [
       "openai",

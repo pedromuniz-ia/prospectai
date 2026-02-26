@@ -6,7 +6,7 @@ import {
   index,
 } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
-import { organizations } from "./organizations";
+import { organization } from "./auth";
 import { campaigns } from "./campaigns";
 import { leads } from "./leads";
 
@@ -24,7 +24,7 @@ export const campaignLeads = sqliteTable(
       .references(() => leads.id),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organizations.id),
+      .references(() => organization.id),
     campaignScore: integer("campaign_score").notNull().default(0),
     campaignScoreBreakdown: text("campaign_score_breakdown", {
       mode: "json",
