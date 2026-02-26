@@ -4,6 +4,7 @@ import { Clock3, MessageSquare, MoveRight, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ScoreBadge, StatusBadge } from "@/app/(dashboard)/leads/columns";
+import { EmptyState } from "@/components/ds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,6 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatRelativeTime } from "@/lib/helpers";
 
 type LeadRow = {
@@ -61,11 +67,23 @@ export function LeadsDataTable({
     );
   }, [leads, referenceNow]);
 
+  if (leads.length === 0) {
+    return (
+      <EmptyState
+        icon={MessageSquare}
+        title="Nenhum lead encontrado"
+        description="Ajuste os filtros ou inicie uma nova extração para popular a base."
+      />
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-border/70 bg-card/70 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
         <div className="text-muted-foreground text-xs">
-          {selected.length > 0 ? `${selected.length} selecionados` : `${leads.length} leads nesta página`}
+          {selected.length > 0
+            ? `${selected.length} selecionados — selecione uma campanha para ação em lote`
+            : `${leads.length} leads nesta página`}
         </div>
 
         {selected.length > 0 && (
@@ -128,7 +146,7 @@ export function LeadsDataTable({
                     {isStale && (
                       <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
                         <Clock3 className="mr-1 h-3 w-3" />
-                        stale
+                        Inativo
                       </Badge>
                     )}
                   </div>
@@ -140,14 +158,24 @@ export function LeadsDataTable({
 
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon-sm" asChild>
-                      <Link href={`/inbox?leadId=${lead.id}`}>
-                        <MessageSquare className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => onOpenLead(lead.id)}>
-                      <MoveRight className="h-4 w-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon-sm" asChild>
+                          <Link href={`/inbox?leadId=${lead.id}`}>
+                            <MessageSquare className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Ver conversa</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon-sm" onClick={() => onOpenLead(lead.id)}>
+                          <MoveRight className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Ver detalhes</TooltipContent>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>

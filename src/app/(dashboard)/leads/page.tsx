@@ -1,11 +1,16 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Filter,
+  Globe,
   KanbanSquare,
   List,
+  MapPin,
+  MessageSquare,
+  Phone,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -14,6 +19,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import {
   bulkAddToCampaign,
+  getFilterOptions,
   getLead,
   getLeadBoard,
   getLeads,
@@ -23,7 +29,8 @@ import {
 import { getCampaigns } from "@/lib/actions/campaigns";
 import { LeadsDataTable } from "@/app/(dashboard)/leads/data-table";
 import { BoardView } from "@/app/(dashboard)/leads/board-view";
-import { ScoreBadge, StatusBadge } from "@/app/(dashboard)/leads/columns";
+import { ScoreBadge } from "@/app/(dashboard)/leads/columns";
+import { StatusBadge } from "@/components/ds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -43,7 +50,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatRelativeTime, safeJsonParse } from "@/lib/helpers";
+import { formatRelativeTime } from "@/lib/helpers";
+import { t, entries } from "@/lib/i18n";
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -70,6 +78,7 @@ function LeadsPageContent() {
   const [campaigns, setCampaigns] = useState<Awaited<ReturnType<typeof getCampaigns>>>([]);
   const [boardRows, setBoardRows] = useState<Awaited<ReturnType<typeof getLeadBoard>>>([]);
   const [leadDetails, setLeadDetails] = useState<Awaited<ReturnType<typeof getLead>> | null>(null);
+  const [filterOptions, setFilterOptions] = useState<{ categories: string[]; cities: string[] }>({ categories: [], cities: [] });
 
   const page = Number(searchParams.get("page") ?? "1");
   const view = searchParams.get("view") === "board" ? "board" : "table";
@@ -125,14 +134,16 @@ function LeadsPageContent() {
     setLoading(true);
 
     try {
-      const [leadResult, campaignResult] = await Promise.all([
+      const [leadResult, campaignResult, filterOpts] = await Promise.all([
         getLeads(organizationId, filters),
         getCampaigns(organizationId),
+        getFilterOptions(organizationId),
       ]);
 
       setRows(leadResult.rows);
       setCount(leadResult.count);
       setCampaigns(campaignResult);
+      setFilterOptions(filterOpts);
 
       if (view === "board" && boardCampaignId) {
         const board = await getLeadBoard(organizationId, boardCampaignId);
@@ -169,15 +180,8 @@ function LeadsPageContent() {
 
   const totalPages = Math.max(1, Math.ceil(count / DEFAULT_PAGE_SIZE));
 
-  const categoryOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.category).filter(Boolean))).sort(),
-    [rows]
-  );
-
-  const cityOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.city).filter(Boolean))).sort(),
-    [rows]
-  );
+  const categoryOptions = filterOptions.categories;
+  const cityOptions = filterOptions.cities;
 
   async function handleBulkAdd() {
     if (!organizationId) return;
@@ -236,7 +240,7 @@ function LeadsPageContent() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="lg:col-span-2">
               <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
                 Buscar
@@ -268,7 +272,7 @@ function LeadsPageContent() {
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
                   {categoryOptions.map((category) => (
-                    <SelectItem key={category} value={category!}>
+                    <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
                   ))}
@@ -292,8 +296,34 @@ function LeadsPageContent() {
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
                   {cityOptions.map((city) => (
-                    <SelectItem key={city} value={city!}>
+                    <SelectItem key={city} value={city}>
                       {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
+                Status
+              </Label>
+              <Select
+                value={filters.status?.[0] ?? "all"}
+                onValueChange={(value) =>
+                  setParam("status", value === "all" ? null : value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {entries("leadStatus").map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -311,6 +341,20 @@ function LeadsPageContent() {
                   setParam("scoreMin", event.target.value || null)
                 }
                 placeholder="0"
+              />
+            </div>
+
+            <div>
+              <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
+                Score máximo
+              </Label>
+              <Input
+                type="number"
+                value={filters.scoreMax ?? ""}
+                onChange={(event) =>
+                  setParam("scoreMax", event.target.value || null)
+                }
+                placeholder="100"
               />
             </div>
           </div>
@@ -433,29 +477,31 @@ function LeadsPageContent() {
           </div>
         )}
 
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Mostrando {(page - 1) * DEFAULT_PAGE_SIZE + 1} - {Math.min(page * DEFAULT_PAGE_SIZE, count)} de {count}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setParam("page", String(page - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setParam("page", String(page + 1))}
-            >
-              Próxima
-            </Button>
+        {view === "table" && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Mostrando {(page - 1) * DEFAULT_PAGE_SIZE + 1} - {Math.min(page * DEFAULT_PAGE_SIZE, count)} de {count}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setParam("page", String(page - 1))}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setParam("page", String(page + 1))}
+              >
+                Próxima
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <Sheet
@@ -485,44 +531,81 @@ function LeadsPageContent() {
                   <div>
                     <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Status</p>
                     <div className="mt-2">
-                      <StatusBadge status={leadDetails.status} />
+                      <StatusBadge domain="leadStatus" value={leadDetails.status} />
                     </div>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Telefone</p>
-                    <p className="mt-1 text-sm">{leadDetails.phone ?? "—"}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                      {leadDetails.phone ? (
+                        <a href={`tel:${leadDetails.phone}`} className="hover:text-primary transition-colors">
+                          {leadDetails.phone}
+                        </a>
+                      ) : "—"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Website</p>
-                    <p className="mt-1 text-sm">{leadDetails.website ?? "—"}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm">
+                      <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                      {leadDetails.website ? (
+                        <a
+                          href={leadDetails.website.startsWith("http") ? leadDetails.website : `https://${leadDetails.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate hover:text-primary transition-colors"
+                        >
+                          {leadDetails.website}
+                        </a>
+                      ) : "—"}
+                    </p>
                   </div>
+                  {leadDetails.city && (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Cidade</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Link href={`/leads?city=${encodeURIComponent(leadDetails.city)}`} className="hover:text-primary transition-colors">
+                          {leadDetails.city}
+                        </Link>
+                      </p>
+                    </div>
+                  )}
                 </section>
 
+                <div className="flex justify-center">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/inbox?leadId=${leadDetails.id}`}>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Ver conversa completa
+                    </Link>
+                  </Button>
+                </div>
+
                 <section className="rounded-xl border border-border/70 bg-card/50 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Score breakdown</p>
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Detalhamento da pontuação</p>
                   <div className="mt-3 space-y-2">
-                    {Object.entries(
-                      safeJsonParse<Record<string, number>>(
-                        typeof leadDetails.scoreBreakdown === "string"
-                          ? leadDetails.scoreBreakdown
-                          : null,
-                        {}
-                      )
-                    ).map(([label, points]) => (
-                      <div key={label}>
-                        <div className="mb-1 flex items-center justify-between text-xs">
-                          <span>{label}</span>
-                          <span className="font-mono">+{points}</span>
+                    {(() => {
+                      const breakdown = leadDetails.parsedScoreBreakdown;
+                      const totalScore = Object.values(breakdown).reduce((sum, v) => sum + Math.abs(v), 0);
+                      const maxScore = Math.max(totalScore, 100);
+                      return Object.entries(breakdown).map(([label, points]) => (
+                        <div key={label}>
+                          <div className="mb-1 flex items-center justify-between text-xs">
+                            <span>{label}</span>
+                            <span className="font-mono">{points >= 0 ? `+${points}` : points}</span>
+                          </div>
+                          <div className="bg-muted h-2 rounded-full">
+                            <div
+                              className="bg-primary h-2 rounded-full"
+                              style={{ width: `${Math.min((Math.abs(points) / maxScore) * 100, 100)}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="bg-muted h-2 rounded-full">
-                          <div
-                            className="bg-primary h-2 rounded-full"
-                            style={{ width: `${Math.min(points, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    {!leadDetails.scoreBreakdown && (
+                      ));
+                    })()}
+                    {Object.keys(leadDetails.parsedScoreBreakdown).length === 0 && (
                       <p className="text-xs text-muted-foreground">Sem breakdown disponível.</p>
                     )}
                   </div>
@@ -542,10 +625,10 @@ function LeadsPageContent() {
                           <div>
                             <p className="text-sm font-medium">{campaignRow.campaignName}</p>
                             <p className="text-xs text-muted-foreground">
-                              Stage: {campaignRow.pipelineStage}
+                              {t("pipelineStage", campaignRow.pipelineStage)}
                             </p>
                           </div>
-                          <StatusBadge status={campaignRow.leadStatus} />
+                          <StatusBadge domain="campaignLeadStatus" value={campaignRow.leadStatus} />
                         </div>
                       ))
                     )}

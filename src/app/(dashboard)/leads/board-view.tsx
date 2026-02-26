@@ -4,11 +4,13 @@ import {
   DndContext,
   DragEndEvent,
   PointerSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { KanbanColumn } from "@/components/kanban-column";
 
 type BoardRow = {
@@ -18,6 +20,8 @@ type BoardRow = {
   campaignScore: number;
   leadId: string;
   leadName: string;
+  leadCategory: string | null;
+  leadCity: string | null;
   leadScore: number;
   contactedAt: Date | null;
 };
@@ -40,10 +44,19 @@ export function BoardView({
   onMove: (campaignLeadId: string, stage: string) => Promise<void>;
   onOpenLead?: (leadId: string) => void;
 }) {
+  const [optimisticRows, setOptimisticRows] = useState<BoardRow[] | null>(null);
+  const displayRows = optimisticRows ?? rows;
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 6,
       },
     })
   );
@@ -52,13 +65,13 @@ export function BoardView({
     const map = new Map<string, BoardRow[]>();
     for (const stage of stages) map.set(stage.id, []);
 
-    for (const row of rows) {
+    for (const row of displayRows) {
       if (!map.has(row.pipelineStage)) map.set(row.pipelineStage, []);
       map.get(row.pipelineStage)?.push(row);
     }
 
     return map;
-  }, [rows]);
+  }, [displayRows]);
 
   async function handleDragEnd(event: DragEndEvent) {
     const activeId = String(event.active.id);
@@ -68,13 +81,28 @@ export function BoardView({
     let targetStage = String(over.id);
 
     if (!stages.find((stage) => stage.id === targetStage)) {
-      const dropCard = rows.find((row) => row.campaignLeadId === targetStage);
+      const dropCard = displayRows.find((row) => row.campaignLeadId === targetStage);
       targetStage = dropCard?.pipelineStage ?? targetStage;
     }
 
     if (!stages.find((stage) => stage.id === targetStage)) return;
 
-    await onMove(activeId, targetStage);
+    // Optimistic update
+    const prev = rows;
+    setOptimisticRows(
+      rows.map((row) =>
+        row.campaignLeadId === activeId ? { ...row, pipelineStage: targetStage } : row
+      )
+    );
+
+    try {
+      await onMove(activeId, targetStage);
+    } catch {
+      setOptimisticRows(prev);
+      toast.error("Erro ao mover card. Revertido.");
+    } finally {
+      setOptimisticRows(null);
+    }
   }
 
   return (
@@ -94,7 +122,7 @@ export function BoardView({
               leadId: row.leadId,
               title: row.leadName,
               score: row.leadScore,
-              snippet: row.status,
+              snippet: row.leadCategory ?? row.leadCity ?? undefined,
               daysInStage: row.contactedAt
                 ? Math.floor(
                     (Date.now() - new Date(row.contactedAt).getTime()) / 86_400_000

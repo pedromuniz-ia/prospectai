@@ -332,6 +332,25 @@ export async function updateCampaignLeadStage(
   return updated;
 }
 
+export async function getFilterOptions(organizationId: string) {
+  const categoryRows = await db
+    .selectDistinct({ category: leads.category })
+    .from(leads)
+    .where(and(eq(leads.organizationId, organizationId), sql`${leads.category} is not null`))
+    .orderBy(asc(leads.category));
+
+  const cityRows = await db
+    .selectDistinct({ city: leads.city })
+    .from(leads)
+    .where(and(eq(leads.organizationId, organizationId), sql`${leads.city} is not null`))
+    .orderBy(asc(leads.city));
+
+  return {
+    categories: categoryRows.map((r) => r.category!),
+    cities: cityRows.map((r) => r.city!),
+  };
+}
+
 export async function searchLeadsQuick(
   organizationId: string,
   query: string,
