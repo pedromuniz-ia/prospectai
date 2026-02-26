@@ -14,8 +14,9 @@ export function StatusBar() {
   const [unread, setUnread] = useState(0);
   const [needsReview, setNeedsReview] = useState(0);
   const [activeCampaigns, setActiveCampaigns] = useState(0);
-  const [instanceLabel, setInstanceLabel] = useState("Nenhuma instância");
-  const [dailyUsage, setDailyUsage] = useState("0/0 msgs");
+  const [instanceLabel, setInstanceLabel] = useState("");
+  const [dailyUsage, setDailyUsage] = useState("");
+  const [extraInstances, setExtraInstances] = useState(0);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -40,15 +41,22 @@ export function StatusBar() {
 
     setActiveCampaigns(campaigns.filter((campaign) => campaign.status === "active").length);
 
-    const connected = instances.find((instance) => instance.status === "connected");
-    if (!connected) {
-      setInstanceLabel("Nenhuma instância");
-      setDailyUsage("0/0 msgs");
+    const connectedInstances = instances.filter((i) => i.status === "connected");
+    if (connectedInstances.length === 0) {
+      setInstanceLabel("");
+      setDailyUsage("");
+      setExtraInstances(0);
       return;
     }
 
-    setInstanceLabel(connected.phone ?? connected.instanceName);
-    setDailyUsage(`${connected.dailyMessagesSent}/${connected.dailyMessageLimit} msgs`);
+    const first = connectedInstances[0];
+    setInstanceLabel(first.phone ?? first.instanceName);
+
+    // Consolidated usage across all connected instances
+    const totalSent = connectedInstances.reduce((sum, i) => sum + i.dailyMessagesSent, 0);
+    const totalLimit = connectedInstances.reduce((sum, i) => sum + i.dailyMessageLimit, 0);
+    setDailyUsage(`${totalSent}/${totalLimit} msgs`);
+    setExtraInstances(connectedInstances.length - 1);
   }, [organizationId]);
 
   useEffect(() => {
@@ -63,6 +71,9 @@ export function StatusBar() {
     return () => clearInterval(interval);
   }, [load]);
 
+  // Hide status bar when no organization is selected
+  if (!organizationId) return null;
+
   return (
     <div className="shrink-0 overflow-x-auto border-b border-border bg-background px-4 py-2 text-xs">
       <div className="flex items-center gap-3 whitespace-nowrap text-muted-foreground md:gap-4">
@@ -75,14 +86,19 @@ export function StatusBar() {
         <span>
           <strong className="text-foreground">{activeCampaigns}</strong> campanhas ativas
         </span>
-        <span className="hidden sm:inline">·</span>
-        <span className="flex items-center gap-1.5">
-          <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
-            {instanceLabel}
-          </Badge>
-        </span>
-        <span>{dailyUsage}</span>
-        <span className="hidden sm:inline">entrega monitorada</span>
+        {instanceLabel && (
+          <>
+            <span className="hidden sm:inline">·</span>
+            <span className="flex items-center gap-1.5">
+              <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                {instanceLabel}
+                {extraInstances > 0 && ` (+${extraInstances})`}
+              </Badge>
+            </span>
+            <span>{dailyUsage}</span>
+            <span className="hidden sm:inline">WhatsApp ativo</span>
+          </>
+        )}
       </div>
     </div>
   );
