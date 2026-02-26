@@ -64,6 +64,13 @@ async function setupSchedulers() {
     { name: "reset-counters" }
   );
 
+  // Advance warmup at 1am
+  await schedulerQueue.upsertJobScheduler(
+    "warmup-advance",
+    { pattern: "0 1 * * *" },
+    { name: "warmup-advance" }
+  );
+
   // Health check every 5 minutes
   await schedulerQueue.upsertJobScheduler(
     "health-check",
@@ -74,7 +81,7 @@ async function setupSchedulers() {
 
 setupSchedulers()
   .then(() => {
-    console.log("[worker] Process started — 6 workers + 3 cron schedulers");
+    console.log("[worker] Process started — 6 workers + 4 cron schedulers");
   })
   .catch((err) => {
     console.error("[worker] Failed to start:", err);
