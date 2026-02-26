@@ -12,11 +12,13 @@ import {
   seedDefaultScoringRules,
   updateScoringRule,
 } from "@/lib/actions/scoring-rules";
+import { entries, formatScoringRule, t } from "@/lib/i18n";
+import { EmptyState, FormField, LoadingButton } from "@/components/ds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -25,7 +27,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const operators = ["eq", "neq", "gt", "lt", "gte", "lte", "in", "not_in"] as const;
+const scoringFieldEntries = entries("scoringField");
+const scoringOperatorEntries = entries("scoringOperator");
+const objectiveEntries = entries("campaignObjective");
+const boolFields = new Set(["hasWebsite", "hasInstagram", "hasGoogleBusiness", "hasSsl"]);
 
 export default function ScoringSettingsPage() {
   const activeOrg = authClient.useActiveOrganization();
@@ -36,11 +41,15 @@ export default function ScoringSettingsPage() {
   const [rules, setRules] = useState<Awaited<ReturnType<typeof getScoringRules>>>([]);
 
   const [field, setField] = useState("hasWebsite");
-  const [operator, setOperator] = useState<(typeof operators)[number]>("eq");
+  const [operator, setOperator] = useState("eq");
   const [value, setValue] = useState("false");
+  const [boolValue, setBoolValue] = useState(false);
+  const [numValue, setNumValue] = useState(0);
   const [points, setPoints] = useState(10);
   const [label, setLabel] = useState("");
   const [ruleObjective, setRuleObjective] = useState("global");
+
+  const isBoolField = boolFields.has(field);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -71,16 +80,18 @@ export default function ScoringSettingsPage() {
   async function handleAddRule() {
     if (!organizationId) return;
     if (!label.trim()) {
-      toast.error("Defina um label para a regra.");
+      toast.error("Defina um nome para a regra.");
       return;
     }
+
+    const resolvedValue = isBoolField ? String(boolValue) : String(numValue || value);
 
     await createScoringRule({
       organizationId,
       objective: ruleObjective as "global" | "sell_website" | "sell_ai_agent" | "sell_optimization",
       field,
-      operator,
-      value,
+      operator: operator as "eq" | "neq" | "gt" | "lt" | "gte" | "lte" | "in" | "not_in",
+      value: resolvedValue,
       points,
       label,
       active: true,
@@ -113,60 +124,93 @@ export default function ScoringSettingsPage() {
           Regras de pontuação por objetivo para priorização comercial.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleSeedDefaults}>
+          <LoadingButton variant="outline" onClick={handleSeedDefaults}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Seed default
-          </Button>
-          <Button onClick={handleRecalculate}>
+            Criar regras padrão
+          </LoadingButton>
+          <LoadingButton onClick={handleRecalculate}>
             <PlayCircle className="mr-2 h-4 w-4" />
             Recalcular leads
-          </Button>
+          </LoadingButton>
         </div>
       </Card>
 
       <Card className="border-border/70 bg-card/75 p-5">
+        <h2 className="mb-3 text-sm font-semibold">Nova regra</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Objetivo da regra</Label>
+          <FormField label="Objetivo">
             <Select value={ruleObjective} onValueChange={setRuleObjective}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="global">global</SelectItem>
-                <SelectItem value="sell_website">sell_website</SelectItem>
-                <SelectItem value="sell_ai_agent">sell_ai_agent</SelectItem>
-                <SelectItem value="sell_optimization">sell_optimization</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Field</Label>
-            <Input value={field} onChange={(event) => setField(event.target.value)} />
-          </div>
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Operator</Label>
-            <Select value={operator} onValueChange={(value) => setOperator(value as typeof operator)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {operators.map((item) => (
-                  <SelectItem key={item} value={item}>{item}</SelectItem>
+                <SelectItem value="global">Global</SelectItem>
+                {objectiveEntries.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Value</Label>
-            <Input value={value} onChange={(event) => setValue(event.target.value)} />
-          </div>
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Points</Label>
-            <Input type="number" value={points} onChange={(event) => setPoints(Number(event.target.value || 0))} />
-          </div>
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Label</Label>
-            <Input value={label} onChange={(event) => setLabel(event.target.value)} />
-          </div>
+          </FormField>
+
+          <FormField label="Campo">
+            <Select value={field} onValueChange={setField}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {scoringFieldEntries.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          <FormField label="Operador">
+            <Select value={operator} onValueChange={setOperator}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {scoringOperatorEntries.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          <FormField label="Valor">
+            {isBoolField ? (
+              <div className="flex h-9 items-center gap-2">
+                <Switch
+                  checked={boolValue}
+                  onCheckedChange={setBoolValue}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {boolValue ? "Sim" : "Não"}
+                </span>
+              </div>
+            ) : (
+              <Input
+                type="number"
+                value={numValue}
+                onChange={(e) => setNumValue(Number(e.target.value || 0))}
+              />
+            )}
+          </FormField>
+
+          <FormField label="Pontos">
+            <Input
+              type="number"
+              value={points}
+              onChange={(e) => setPoints(Number(e.target.value || 0))}
+            />
+          </FormField>
+
+          <FormField label="Nome da regra">
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="ex: Sem website"
+            />
+          </FormField>
         </div>
-        <Button className="mt-3" onClick={handleAddRule}>Adicionar regra</Button>
+        <LoadingButton className="mt-3" onClick={handleAddRule}>
+          Adicionar regra
+        </LoadingButton>
       </Card>
 
       <Card className="border-border/70 bg-card/75 p-5">
@@ -176,7 +220,9 @@ export default function ScoringSettingsPage() {
             <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
               {objectives.map((item) => (
-                <SelectItem key={item} value={item}>{item}</SelectItem>
+                <SelectItem key={item} value={item}>
+                  {item === "all" ? "Todas" : t("campaignObjective", item)}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -188,10 +234,17 @@ export default function ScoringSettingsPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium">{rule.label}</p>
-                  <Badge variant="outline">{rule.objective}</Badge>
+                  <Badge variant="outline">
+                    {rule.objective === "global" ? "Global" : t("campaignObjective", rule.objective)}
+                  </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {rule.field} {rule.operator} {String(rule.value)} → +{rule.points}
+                  {formatScoringRule({
+                    field: rule.field,
+                    operator: rule.operator,
+                    value: rule.value === "true" ? true : rule.value === "false" ? false : Number(rule.value) || rule.value,
+                    points: rule.points,
+                  })}
                 </p>
               </div>
               <Button
@@ -205,7 +258,11 @@ export default function ScoringSettingsPage() {
           ))}
 
           {rules.length === 0 && (
-            <p className="text-sm text-muted-foreground">Sem regras para este filtro.</p>
+            <EmptyState
+              icon={Calculator}
+              title="Sem regras para este filtro"
+              description="Crie regras padrão ou adicione uma nova regra acima."
+            />
           )}
         </div>
       </Card>
