@@ -53,3 +53,7 @@ export async function exportOrganizationData(organizationId: string) {
     warmupConfigs: warmupRows,
   };
 }
+
+export async function checkApifyTokenStatus(): Promise<{ configured: boolean }> {
+  return { configured: !!process.env.APIFY_TOKEN };
+}

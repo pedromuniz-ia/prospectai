@@ -1,13 +1,14 @@
 "use client";
 
-import { Download, Link2, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Copy, Download, Link2, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
-import { exportOrganizationData } from "@/lib/actions/advanced";
-import { Button } from "@/components/ui/button";
+import { checkApifyTokenStatus, exportOrganizationData } from "@/lib/actions/advanced";
+import { FormField, LoadingButton } from "@/components/ds";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export default function AdvancedSettingsPage() {
   const activeOrg = authClient.useActiveOrganization();
@@ -15,6 +16,17 @@ export default function AdvancedSettingsPage() {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const webhookUrl = `${appUrl}/api/webhooks/evolution`;
+
+  const [apifyConfigured, setApifyConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkApifyTokenStatus().then((result) => setApifyConfigured(result.configured));
+  }, []);
+
+  async function handleCopyWebhook() {
+    await navigator.clipboard.writeText(webhookUrl);
+    toast.success("URL copiada para a área de transferência.");
+  }
 
   async function handleExport() {
     if (!organizationId) return;
@@ -46,8 +58,14 @@ export default function AdvancedSettingsPage() {
         </p>
 
         <div className="mt-4">
-          <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">Webhook Evolution API</Label>
-          <Input readOnly value={webhookUrl} />
+          <FormField label="Webhook Evolution API" helper="Configure esta URL no painel da Evolution API para receber mensagens.">
+            <div className="flex gap-2">
+              <Input readOnly value={webhookUrl} className="font-mono text-xs" />
+              <LoadingButton variant="outline" size="icon" onClick={handleCopyWebhook} title="Copiar URL">
+                <Copy className="h-4 w-4" />
+              </LoadingButton>
+            </div>
+          </FormField>
         </div>
       </Card>
 
@@ -59,9 +77,10 @@ export default function AdvancedSettingsPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           Export completo (JSON) para backup ou auditoria.
         </p>
-        <Button className="mt-3" onClick={handleExport}>
+        <LoadingButton className="mt-3" onClick={handleExport}>
+          <Download className="mr-2 h-4 w-4" />
           Baixar export
-        </Button>
+        </LoadingButton>
       </Card>
 
       <Card className="border-border/70 bg-card/75 p-5">
@@ -70,9 +89,23 @@ export default function AdvancedSettingsPage() {
           <h2 className="text-base font-semibold">Token Apify</h2>
         </div>
         <p className="text-muted-foreground mt-1 text-sm">
-          Configure `APIFY_TOKEN` no ambiente de runtime (`.env.local` / produção) para extração.
+          Necessário para extração de leads via Google Maps. Configure no ambiente de deploy.
         </p>
-        <Input readOnly value={process.env.APIFY_TOKEN ? "Configurado" : "Não configurado"} />
+        <div className="mt-3">
+          {apifyConfigured === null ? (
+            <Badge variant="outline">Verificando...</Badge>
+          ) : apifyConfigured ? (
+            <Badge variant="default" className="gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              Configurado
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="gap-1">
+              <XCircle className="h-3 w-3" />
+              Não configurado
+            </Badge>
+          )}
+        </div>
       </Card>
     </div>
   );
