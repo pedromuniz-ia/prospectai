@@ -28,7 +28,7 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { href: "/settings", label: "Config", icon: Settings },
+  { href: "/settings/general", label: "Configurações", icon: Settings },
 ];
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
@@ -61,7 +61,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       {bottomItems.map((item) => {
         const isActive =
-          pathname === item.href || pathname.startsWith(item.href + "/");
+          pathname === item.href || pathname.startsWith(item.href + "/") || pathname.startsWith("/settings");
         return (
           <Link
             key={item.href}
