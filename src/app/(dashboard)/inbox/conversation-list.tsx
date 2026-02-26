@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowRight, Circle } from "lucide-react";
+import { useState } from "react";
+import { Circle, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/ds";
 import { cn } from "@/lib/utils";
 
 type ConversationRow = {
@@ -25,7 +27,7 @@ const filters: { key: FilterValue; label: string }[] = [
   { key: "needs_action", label: "Precisa ação" },
   { key: "all", label: "Todas" },
   { key: "unread", label: "Não lidas" },
-  { key: "awaiting_ai", label: "Aguard. IA" },
+  { key: "awaiting_ai", label: "IA pendente" },
 ];
 
 function toneByConversation(conversation: ConversationRow) {
@@ -41,18 +43,33 @@ export function ConversationList({
   filter,
   onFilterChange,
   onSelect,
-  onSelectNext,
 }: {
   rows: ConversationRow[];
   selectedLeadId: string | null;
   filter: FilterValue;
   onFilterChange: (filter: FilterValue) => void;
   onSelect: (leadId: string) => void;
-  onSelectNext: () => void;
 }) {
+  const [search, setSearch] = useState("");
+
+  const filteredRows = search.trim()
+    ? rows.filter((row) =>
+        row.leadName.toLowerCase().includes(search.toLowerCase())
+      )
+    : rows;
+
   return (
     <div className="flex h-full flex-col border-r border-border/70 bg-card/50">
-      <div className="border-b border-border/70 p-3">
+      <div className="border-b border-border/70 p-3 space-y-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar conversa..."
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-1">
           {filters.map((item) => (
             <button
@@ -73,15 +90,16 @@ export function ConversationList({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <div className="p-4 text-xs text-muted-foreground">Sem conversas neste filtro.</div>
         ) : (
           <div className="divide-y divide-border/60">
-            {rows.map((row) => (
+            {filteredRows.map((row) => (
               <button
                 key={row.leadId}
                 type="button"
                 onClick={() => onSelect(row.leadId)}
+                aria-label={`Conversa com ${row.leadName}`}
                 className={cn(
                   "w-full px-3 py-3 text-left transition-colors hover:bg-muted/40",
                   selectedLeadId === row.leadId && "bg-primary/10"
@@ -89,9 +107,7 @@ export function ConversationList({
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-1 text-sm font-medium">{row.leadName}</p>
-                  <Badge variant="outline" className="font-mono">
-                    {row.score}
-                  </Badge>
+                  <StatusBadge domain="leadStatus" value={row.status} />
                 </div>
 
                 <p className={cn("mt-1 line-clamp-1 text-xs", toneByConversation(row))}>
@@ -118,13 +134,6 @@ export function ConversationList({
             ))}
           </div>
         )}
-      </div>
-
-      <div className="border-t border-border/70 p-3">
-        <Button className="w-full" variant="outline" onClick={onSelectNext}>
-          Próximo
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
       </div>
     </div>
   );

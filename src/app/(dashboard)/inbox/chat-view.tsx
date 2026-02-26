@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Send, Slash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/helpers";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type MessageRow = {
   id: string;
@@ -23,13 +28,7 @@ type TemplateRow = {
   content: string;
 };
 
-const sourceLabel: Record<string, string> = {
-  cadence: "cadência",
-  ai_auto: "IA auto",
-  ai_approved: "IA aprovada",
-  manual: "manual",
-  webhook: "webhook",
-};
+type ComposeMode = "compose" | "suggestion";
 
 export function ChatView({
   messages,
@@ -51,6 +50,9 @@ export function ChatView({
   const [compose, setCompose] = useState("");
   const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const mode: ComposeMode = aiSuggestion ? "suggestion" : "compose";
 
   const history = [...messages].reverse();
 
@@ -61,6 +63,22 @@ export function ChatView({
       .filter((template) => template.shortcut.includes(shortcutQuery.toLowerCase()))
       .slice(0, 6);
   }, [shortcutQuery, templates]);
+
+  // Keyboard shortcut: Ctrl+Enter / Cmd+Enter to send
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (mode === "suggestion" && aiSuggestion) {
+          void handleSend(aiSuggestion, "ai_approved");
+        } else if (compose.trim()) {
+          void handleSend(compose, "manual");
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [compose, aiSuggestion, mode]);
 
   async function handleSend(content: string, source: "manual" | "ai_approved") {
     const payload = content.trim();
@@ -86,6 +104,23 @@ export function ChatView({
     }
   }
 
+  function insertTemplate(template: TemplateRow) {
+    // Insert at cursor position, replacing the /shortcut
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const cursorPos = textarea.selectionStart;
+      const textBefore = compose.slice(0, cursorPos);
+      const textAfter = compose.slice(cursorPos);
+      const shortcutStart = textBefore.lastIndexOf("/");
+      const newText = textBefore.slice(0, shortcutStart) + template.content + textAfter;
+      setCompose(newText);
+    } else {
+      setCompose(template.content);
+    }
+  }
+
+  const charCount = mode === "compose" ? compose.length : aiSuggestion.length;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -105,81 +140,107 @@ export function ChatView({
               <p className="text-sm leading-relaxed">{message.content}</p>
               <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span>{formatRelativeTime(message.createdAt)}</span>
-                <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                  {sourceLabel[message.source ?? "manual"] ?? message.source}
-                </Badge>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-default">
+                      {t("messageSource", message.source ?? "manual")}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fonte: {t("messageSource", message.source ?? "manual")}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           ))
         )}
       </div>
 
-      {aiSuggestion && (
-        <div className="border-t border-border/70 bg-card/70 p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.09em] text-primary">
-            <Bot className="h-3.5 w-3.5" />
-            Sugestão IA
-          </div>
-          <Textarea
-            value={aiSuggestion}
-            onChange={(event) => onChangeSuggestion(event.target.value)}
-            rows={3}
-          />
-          <div className="mt-2 flex gap-2">
-            <Button size="sm" onClick={() => handleSend(aiSuggestion, "ai_approved")} disabled={sending}>
-              Enviar
-            </Button>
-            <Button size="sm" variant="outline" onClick={onDismissSuggestion}>
-              Pular
-            </Button>
-          </div>
-        </div>
-      )}
-
+      {/* Unified compose area */}
       <div className="border-t border-border/70 bg-card/70 p-3">
-        <div className="relative">
-          <Textarea
-            value={compose}
-            onChange={(event) => setCompose(event.target.value)}
-            placeholder="Digite sua mensagem... (use /shortcut para snippets)"
-            rows={3}
-          />
-
-          {filteredTemplates.length > 0 && (
-            <div className="bg-popover absolute right-0 bottom-full left-0 mb-2 rounded-lg border p-1 shadow-md">
-              {filteredTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => {
-                    setCompose(template.content);
-                  }}
-                  className="hover:bg-accent flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left"
-                >
-                  <Slash className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs font-medium">/{template.shortcut}</p>
-                    <p className="text-muted-foreground line-clamp-1 text-xs">
-                      {template.title}
-                    </p>
-                  </div>
-                </button>
-              ))}
+        {mode === "suggestion" ? (
+          <>
+            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.09em] text-primary">
+              <Bot className="h-3.5 w-3.5" />
+              Sugestão da IA
             </div>
-          )}
-        </div>
+            <Textarea
+              value={aiSuggestion}
+              onChange={(event) => onChangeSuggestion(event.target.value)}
+              rows={3}
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleSend(aiSuggestion, "ai_approved")} disabled={sending}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Enviar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  setCompose(aiSuggestion);
+                  onDismissSuggestion();
+                }}>
+                  Editar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onDismissSuggestion}>
+                  Descartar
+                </Button>
+              </div>
+              {charCount > 3000 && (
+                <span className="text-xs text-destructive">{charCount}/4096</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={compose}
+                onChange={(event) => setCompose(event.target.value)}
+                placeholder="Digite sua mensagem... (use /shortcut para snippets, Ctrl+Enter para enviar)"
+                rows={3}
+              />
 
-        <div className="mt-2 flex items-center justify-between">
-          <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating}>
-            <Bot className="mr-2 h-4 w-4" />
-            {generating ? "Gerando..." : "Gerar com IA"}
-          </Button>
+              {filteredTemplates.length > 0 && (
+                <div className="bg-popover absolute right-0 bottom-full left-0 mb-2 rounded-lg border p-1 shadow-md">
+                  {filteredTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => insertTemplate(template)}
+                      className="hover:bg-accent flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left"
+                    >
+                      <Slash className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs font-medium">/{template.shortcut}</p>
+                        <p className="text-muted-foreground line-clamp-1 text-xs">
+                          {template.title}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <Button size="sm" onClick={() => handleSend(compose, "manual")} disabled={sending}>
-            <Send className="mr-2 h-4 w-4" />
-            Enviar
-          </Button>
-        </div>
+            <div className="mt-2 flex items-center justify-between">
+              <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating}>
+                <Bot className="mr-2 h-4 w-4" />
+                {generating ? "Gerando..." : "Gerar com IA"}
+              </Button>
+
+              <div className="flex items-center gap-2">
+                {charCount > 3000 && (
+                  <span className="text-xs text-destructive">{charCount}/4096</span>
+                )}
+                <Button size="sm" onClick={() => handleSend(compose, "manual")} disabled={sending}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Enviar
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
