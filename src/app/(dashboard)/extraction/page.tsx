@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Database, Play, Save, Search, Sparkles } from "lucide-react";
+import { Database, Info, Play, Save, Search } from "lucide-react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -10,13 +10,25 @@ import {
   savePreset,
   startExtraction,
 } from "@/lib/actions/extraction";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, EmptyState, FormField, LoadingButton } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { formatRelativeTime } from "@/lib/helpers";
+import { t } from "@/lib/i18n";
 
 export default function ExtractionPage() {
   const activeOrg = authClient.useActiveOrganization();
@@ -26,10 +38,11 @@ export default function ExtractionPage() {
   const [city, setCity] = useState("São Paulo");
   const [state, setState] = useState("SP");
   const [maxResults, setMaxResults] = useState(20);
-  const [savingPreset, setSavingPreset] = useState(false);
   const [running, setRunning] = useState(false);
   const [jobs, setJobs] = useState<Awaited<ReturnType<typeof getExtractionJobs>>>([]);
   const [presets, setPresets] = useState<Awaited<ReturnType<typeof getPresets>>>([]);
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -57,7 +70,7 @@ export default function ExtractionPage() {
   async function handleRunExtraction() {
     if (!organizationId) return;
     if (!query.trim() || !city.trim() || !state.trim()) {
-      toast.error("Preencha query, cidade e estado.");
+      toast.error("Preencha tipo de negócio, cidade e estado.");
       return;
     }
 
@@ -78,25 +91,28 @@ export default function ExtractionPage() {
     }
   }
 
+  function handleOpenPresetDialog() {
+    setPresetName(`${query} · ${city}/${state}`);
+    setPresetDialogOpen(true);
+  }
+
   async function handleSavePreset() {
     if (!organizationId) return;
-
-    setSavingPreset(true);
-    try {
-      await savePreset(organizationId, {
-        name: `${query} · ${city}/${state}`,
-        query,
-        city,
-        state,
-        maxResults,
-      });
-      toast.success("Preset salvo.");
-      await load();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar preset");
-    } finally {
-      setSavingPreset(false);
+    if (!presetName.trim()) {
+      toast.error("Defina um nome para o preset.");
+      return;
     }
+
+    await savePreset(organizationId, {
+      name: presetName.trim(),
+      query,
+      city,
+      state,
+      maxResults,
+    });
+    toast.success("Preset salvo.");
+    setPresetDialogOpen(false);
+    await load();
   }
 
   return (
@@ -105,58 +121,40 @@ export default function ExtractionPage() {
 
       <div className="relative grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Card className="border-border/70 bg-card/75 p-5 backdrop-blur-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <Search className="text-primary h-4 w-4" />
-                <h1 className="font-display text-2xl">Extração de Leads</h1>
-              </div>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Execute buscas no Google Maps via Apify e alimente o pipeline automaticamente.
-              </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <Search className="text-primary h-4 w-4" />
+              <h1 className="font-display text-2xl">Extração de Leads</h1>
             </div>
-            <Badge variant="outline" className="border-primary/40 text-primary">
-              <Sparkles className="mr-1 h-3 w-3" />
-              Server-side
-            </Badge>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Execute buscas no Google Maps via Apify e alimente o pipeline automaticamente.
+            </p>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <div>
-              <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
-                Query de busca
-              </Label>
+            <FormField label="Tipo de negócio" helper="Categoria de busca no Google Maps">
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Restaurante"
+                placeholder="ex: Restaurante, Dentista"
               />
-            </div>
-            <div>
-              <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
-                Cidade
-              </Label>
+            </FormField>
+            <FormField label="Cidade">
               <Input
                 value={city}
                 onChange={(event) => setCity(event.target.value)}
                 placeholder="São Paulo"
               />
-            </div>
-            <div>
-              <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
-                Estado
-              </Label>
+            </FormField>
+            <FormField label="Estado">
               <Input
                 value={state}
                 onChange={(event) => setState(event.target.value.toUpperCase())}
                 placeholder="SP"
                 maxLength={2}
               />
-            </div>
-            <div>
-              <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.09em] text-muted-foreground">
-                Máximo de resultados
-              </Label>
+            </FormField>
+            <FormField label="Quantidade de locais" helper="Locais buscados no Google Maps">
               <Input
                 type="number"
                 value={maxResults}
@@ -164,7 +162,7 @@ export default function ExtractionPage() {
                 min={1}
                 max={200}
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -174,8 +172,7 @@ export default function ExtractionPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={handleSavePreset}
-              disabled={savingPreset}
+              onClick={handleOpenPresetDialog}
             >
               <Save className="mr-2 h-4 w-4" />
               Salvar preset
@@ -202,7 +199,7 @@ export default function ExtractionPage() {
                   >
                     <p className="text-sm font-medium">{preset.name}</p>
                     <p className="text-muted-foreground mt-1 text-xs">
-                      {preset.query} · {preset.city}/{preset.state} · {preset.maxResults} resultados
+                      {preset.query} · {preset.city}/{preset.state} · {preset.maxResults} locais
                     </p>
                   </button>
                 ))}
@@ -218,10 +215,15 @@ export default function ExtractionPage() {
           </div>
 
           {jobs.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nenhum job executado ainda.</p>
+            <EmptyState
+              icon={Database}
+              title="Nenhum job executado"
+              description="Inicie uma extração para ver os resultados aqui."
+            />
           ) : (
             <div className="space-y-3">
               {jobs.map((job) => {
+                const isRunning = job.status === "running" || job.status === "pending";
                 const progress =
                   job.totalFound > 0
                     ? Math.round(((job.totalNew + job.totalDuplicate) / job.totalFound) * 100)
@@ -229,7 +231,7 @@ export default function ExtractionPage() {
                       ? 100
                       : job.status === "failed"
                         ? 0
-                        : 20;
+                        : undefined;
 
                 return (
                   <div
@@ -238,30 +240,36 @@ export default function ExtractionPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-medium">{job.type}</p>
+                        <p className="text-sm font-medium">{t("jobType", job.type)}</p>
                         <p className="text-muted-foreground mt-0.5 text-xs">
                           {formatRelativeTime(job.createdAt)}
                         </p>
                       </div>
-                      <Badge
-                        variant={
-                          job.status === "completed"
-                            ? "default"
-                            : job.status === "failed"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                      >
-                        {job.status}
-                      </Badge>
+                      <StatusBadge domain="jobStatus" value={job.status} />
                     </div>
 
-                    <Progress value={progress} className="mt-3" />
+                    {isRunning && progress === undefined ? (
+                      <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+                      </div>
+                    ) : (
+                      <Progress value={progress ?? 0} className="mt-3" />
+                    )}
 
                     <div className="text-muted-foreground mt-2 grid grid-cols-3 gap-1 text-xs">
                       <span>Encontrados: {job.totalFound}</span>
                       <span>Novos: {job.totalNew}</span>
-                      <span>Duplicados: {job.totalDuplicate}</span>
+                      <span className="flex items-center gap-1">
+                        Duplicados: {job.totalDuplicate}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Leads já existentes na base que foram encontrados novamente
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
                     </div>
 
                     {job.errorMessage && (
@@ -274,6 +282,29 @@ export default function ExtractionPage() {
           )}
         </Card>
       </div>
+
+      <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salvar preset</DialogTitle>
+          </DialogHeader>
+          <FormField label="Nome do preset">
+            <Input
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="Ex: Restaurantes SP"
+            />
+          </FormField>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPresetDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <LoadingButton onClick={handleSavePreset}>
+              Salvar
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
