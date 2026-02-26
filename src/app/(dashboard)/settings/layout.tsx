@@ -33,28 +33,31 @@ export default function SettingsLayout({
   return (
     <div className="flex h-full flex-col md:flex-row">
       {/* Mobile: horizontal scrollable tabs */}
-      <nav className="flex overflow-x-auto border-b border-border px-2 py-2 md:hidden">
-        <div className="flex gap-1">
-          {settingsTabs.map((tab) => {
-            const isActive = pathname === tab.href;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <div className="relative md:hidden">
+        <nav className="flex overflow-x-auto border-b border-border px-2 py-2">
+          <div className="flex gap-1">
+            {settingsTabs.map((tab) => {
+              const isActive = pathname === tab.href;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                    isActive
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent" />
+      </div>
 
       {/* Desktop: vertical sidebar */}
       <nav className="hidden md:block w-48 shrink-0 border-r border-border p-4">
