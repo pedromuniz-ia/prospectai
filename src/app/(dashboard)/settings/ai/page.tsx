@@ -49,6 +49,8 @@ import {
 
 const providerEntries = entries("aiProvider");
 
+type ProviderType = "openai" | "anthropic" | "google" | "groq" | "together" | "fireworks" | "openai_compatible";
+
 export default function AISettingsPage() {
   const activeOrg = authClient.useActiveOrganization();
   const organizationId = activeOrg.data?.id;
@@ -57,7 +59,7 @@ export default function AISettingsPage() {
 
   const [rows, setRows] = useState<ProviderRow[]>([]);
   const [label, setLabel] = useState("OpenAI");
-  const [provider, setProvider] = useState("openai");
+  const [provider, setProvider] = useState<ProviderType>("openai");
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("gpt-4o-mini");
@@ -83,7 +85,7 @@ export default function AISettingsPage() {
   }, [load]);
 
   function handleProviderChange(value: string) {
-    setProvider(value);
+    setProvider(value as ProviderType);
     const entry = providerEntries.find((e) => e.value === value);
     if (entry) setLabel(entry.label);
   }

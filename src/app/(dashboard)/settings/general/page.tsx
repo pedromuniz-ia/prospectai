@@ -1,12 +1,16 @@
 "use client";
 
-import { Building2, ShieldAlert, Users } from "lucide-react";
+import { Building2, Info, Lock, ShieldAlert, Users } from "lucide-react";
+import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
-import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog, FormField } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function GeneralSettingsPage() {
   const activeOrg = authClient.useActiveOrganization();
@@ -24,18 +28,26 @@ export default function GeneralSettingsPage() {
         </p>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">
-              Nome da organização
-            </Label>
-            <Input value={organization?.name ?? ""} readOnly />
-          </div>
-          <div>
-            <Label className="mb-1 inline-flex text-xs uppercase tracking-[0.08em] text-muted-foreground">
-              Slug
-            </Label>
-            <Input value={organization?.slug ?? ""} readOnly />
-          </div>
+          <FormField label="Nome da organização">
+            <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/50 px-3">
+              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-sm">{organization?.name ?? "—"}</span>
+            </div>
+          </FormField>
+          <FormField label="Identificador">
+            <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/50 px-3">
+              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-sm">{organization?.slug ?? "—"}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Identificador único da organização, usado em URLs internas.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </FormField>
         </div>
       </Card>
 
@@ -43,29 +55,37 @@ export default function GeneralSettingsPage() {
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-primary" />
           <h2 className="text-base font-semibold">Convites de equipe</h2>
-          <Badge variant="outline">MVP</Badge>
         </div>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Convites da organização via Better Auth (fluxo de convite pode ser integrado aqui).
-        </p>
-
-        <div className="mt-3 flex gap-2">
-          <Input placeholder="email@empresa.com" />
-          <Button variant="outline">Enviar convite</Button>
+        <div className="mt-3 rounded-lg border border-dashed border-border/70 p-6 text-center">
+          <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
+          <p className="mt-2 text-sm font-medium">Em breve</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Convites de equipe e controle de acesso estarão disponíveis em uma atualização futura.
+          </p>
         </div>
       </Card>
 
       <Card className="border-destructive/40 bg-destructive/5 p-5">
         <div className="flex items-center gap-2 text-destructive">
           <ShieldAlert className="h-4 w-4" />
-          <h2 className="text-base font-semibold">Danger zone</h2>
+          <h2 className="text-base font-semibold">Zona de risco</h2>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Exclusão da organização remove campanhas, leads e histórico de mensagens.
+          Exclusão da organização remove campanhas, leads e histórico de mensagens. Esta ação é irreversível.
         </p>
-        <Button className="mt-3" variant="destructive" disabled>
-          Excluir organização (bloqueado no MVP)
-        </Button>
+        <ConfirmDialog
+          title="Excluir organização"
+          description={`Digite "${organization?.name ?? ""}" para confirmar a exclusão permanente.`}
+          confirmText="Excluir permanentemente"
+          destructive
+          onConfirm={async () => {
+            toast.error("Funcionalidade ainda não disponível.");
+          }}
+        >
+          <Button className="mt-3" variant="destructive">
+            Excluir organização
+          </Button>
+        </ConfirmDialog>
       </Card>
     </div>
   );
