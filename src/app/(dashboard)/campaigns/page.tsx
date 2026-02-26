@@ -10,17 +10,11 @@ import {
   pauseCampaign,
   resumeCampaign,
 } from "@/lib/actions/campaigns";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, IntervalDisplay, ConfirmDialog, EmptyState } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-
-const objectiveLabel: Record<string, string> = {
-  sell_website: "Website",
-  sell_ai_agent: "Agente IA",
-  sell_optimization: "Otimização",
-  sell_automation: "Automação",
-  custom: "Custom",
-};
+import { t } from "@/lib/i18n";
+import { formatRelativeTime } from "@/lib/helpers";
 
 export default function CampaignsPage() {
   const activeOrg = authClient.useActiveOrganization();
@@ -47,15 +41,15 @@ export default function CampaignsPage() {
     load();
   }, [load]);
 
-  async function handleToggle(campaignId: string, status: string) {
-    if (status === "active") {
-      await pauseCampaign(campaignId);
-      toast.success("Campanha pausada.");
-    } else {
-      await resumeCampaign(campaignId);
-      toast.success("Campanha retomada.");
-    }
+  async function handlePause(campaignId: string) {
+    await pauseCampaign(campaignId);
+    toast.success("Campanha pausada.");
+    await load();
+  }
 
+  async function handleResume(campaignId: string) {
+    await resumeCampaign(campaignId);
+    toast.success("Campanha retomada.");
     await load();
   }
 
@@ -89,11 +83,14 @@ export default function CampaignsPage() {
             Carregando campanhas...
           </Card>
         ) : rows.length === 0 ? (
-          <Card className="border-border/70 bg-card/70 p-8 text-center text-muted-foreground">
-            Nenhuma campanha criada.
-          </Card>
+          <EmptyState
+            icon={Rocket}
+            title="Nenhuma campanha criada"
+            description="Crie sua primeira campanha para começar a abordar leads automaticamente."
+            action={{ label: "Nova campanha", href: "/campaigns/new" }}
+          />
         ) : (
-          <div className="grid gap-3 xl:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {rows.map((campaign) => (
               <Card
                 key={campaign.id}
@@ -104,20 +101,10 @@ export default function CampaignsPage() {
                     <p className="text-base font-semibold">{campaign.name}</p>
                     <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                       <Target className="h-3.5 w-3.5" />
-                      {objectiveLabel[campaign.objective] ?? campaign.objective}
+                      {t("campaignObjective", campaign.objective)}
                     </div>
                   </div>
-                  <Badge
-                    variant={
-                      campaign.status === "active"
-                        ? "default"
-                        : campaign.status === "paused"
-                          ? "secondary"
-                          : "outline"
-                    }
-                  >
-                    {campaign.status}
-                  </Badge>
+                  <StatusBadge domain="campaignStatus" value={campaign.status} />
                 </div>
 
                 <div className="mt-4 grid grid-cols-4 gap-2 rounded-lg border border-border/60 p-3 text-center text-xs">
@@ -134,39 +121,52 @@ export default function CampaignsPage() {
                     <p className="mt-1 text-sm font-semibold">{campaign.stats.replied}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Reply rate</p>
+                    <p className="text-muted-foreground">Taxa de resposta</p>
                     <p className="mt-1 text-sm font-semibold">{campaign.stats.replyRate}%</p>
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>
-                    Cadência: {campaign.minInterval}s - {campaign.maxInterval}s · limite {campaign.dailyLimit}/dia
+                  <span className="flex items-center gap-1">
+                    Cadência: <IntervalDisplay min={campaign.minInterval} max={campaign.maxInterval} suffix="entre msgs" />
+                    · limite {campaign.dailyLimit}/dia
                   </span>
+                </div>
+
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Criada {formatRelativeTime(campaign.createdAt)}
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
-                    IA: {campaign.aiEnabled ? campaign.aiModel ?? "ativa" : "desativada"}
+                    IA: {campaign.aiEnabled
+                      ? `${campaign.aiModel ?? "ativa"}`
+                      : "IA desativada"}
                   </p>
 
-                  <Button
-                    size="sm"
-                    variant={campaign.status === "active" ? "outline" : "default"}
-                    onClick={() => handleToggle(campaign.id, campaign.status)}
-                  >
-                    {campaign.status === "active" ? (
-                      <>
+                  {campaign.status === "active" ? (
+                    <ConfirmDialog
+                      title="Pausar campanha"
+                      description={`Deseja pausar a campanha "${campaign.name}"? Novas mensagens não serão enviadas.`}
+                      onConfirm={() => handlePause(campaign.id)}
+                    >
+                      <Button size="sm" variant="outline">
                         <Pause className="mr-2 h-4 w-4" />
                         Pausar
-                      </>
-                    ) : (
-                      <>
+                      </Button>
+                    </ConfirmDialog>
+                  ) : (
+                    <ConfirmDialog
+                      title="Retomar campanha"
+                      description={`Deseja retomar a campanha "${campaign.name}"? O envio de mensagens será reativado.`}
+                      onConfirm={() => handleResume(campaign.id)}
+                    >
+                      <Button size="sm" variant="default">
                         <Play className="mr-2 h-4 w-4" />
                         Retomar
-                      </>
-                    )}
-                  </Button>
+                      </Button>
+                    </ConfirmDialog>
+                  )}
                 </div>
               </Card>
             ))}
