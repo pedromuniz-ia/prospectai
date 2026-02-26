@@ -13,6 +13,8 @@ import { db } from "@/db";
 import { campaignLeads } from "@/db/schema/campaign-leads";
 import { campaigns } from "@/db/schema/campaigns";
 import { leads } from "@/db/schema/leads";
+import { whatsappInstances } from "@/db/schema/whatsapp-instances";
+import { aiProviders } from "@/db/schema/ai-providers";
 
 export type CampaignFilters = {
   categories?: string[];
@@ -190,6 +192,25 @@ export async function createCampaign(input: {
   aiTemperature?: number;
   whatsappInstanceId?: string | null;
 }) {
+  // Validate FK references exist before inserting
+  let validWhatsappInstanceId: string | null = null;
+  if (input.whatsappInstanceId) {
+    const instance = await db.query.whatsappInstances.findFirst({
+      where: eq(whatsappInstances.id, input.whatsappInstanceId),
+      columns: { id: true },
+    });
+    validWhatsappInstanceId = instance?.id ?? null;
+  }
+
+  let validAiProviderId: string | null = null;
+  if (input.aiProviderId) {
+    const provider = await db.query.aiProviders.findFirst({
+      where: eq(aiProviders.id, input.aiProviderId),
+      columns: { id: true },
+    });
+    validAiProviderId = provider?.id ?? null;
+  }
+
   const [created] = await db
     .insert(campaigns)
     .values({
@@ -206,12 +227,12 @@ export async function createCampaign(input: {
       dailyLimit: input.dailyLimit ?? 40,
       firstMessageVariants: input.firstMessageVariants,
       aiEnabled: input.aiEnabled ?? true,
-      aiProviderId: input.aiProviderId ?? null,
+      aiProviderId: validAiProviderId,
       aiModel: input.aiModel ?? null,
       aiSystemPrompt: input.aiSystemPrompt ?? null,
       aiMaxAutoReplies: input.aiMaxAutoReplies ?? 3,
       aiTemperature: input.aiTemperature ?? 0.7,
-      whatsappInstanceId: input.whatsappInstanceId ?? null,
+      whatsappInstanceId: validWhatsappInstanceId,
     })
     .returning();
 

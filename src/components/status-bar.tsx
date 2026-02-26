@@ -64,8 +64,8 @@ export function StatusBar() {
   }, [load]);
 
   return (
-    <div className="flex flex-col gap-0.5 border-b border-border bg-background px-4 py-2 text-xs">
-      <div className="flex items-center gap-4 text-muted-foreground">
+    <div className="shrink-0 overflow-x-auto border-b border-border bg-background px-4 py-2 text-xs">
+      <div className="flex items-center gap-3 whitespace-nowrap text-muted-foreground md:gap-4">
         <span>
           <strong className="text-foreground">{unread}</strong> não lidas
         </span>
@@ -75,15 +75,14 @@ export function StatusBar() {
         <span>
           <strong className="text-foreground">{activeCampaigns}</strong> campanhas ativas
         </span>
-      </div>
-      <div className="flex items-center gap-4 text-muted-foreground">
+        <span className="hidden sm:inline">·</span>
         <span className="flex items-center gap-1.5">
           <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
             {instanceLabel}
           </Badge>
         </span>
         <span>{dailyUsage}</span>
-        <span>entrega monitorada</span>
+        <span className="hidden sm:inline">entrega monitorada</span>
       </div>
     </div>
   );

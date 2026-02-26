@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signUp } from "@/lib/auth-client";
+import { authClient, signUp } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,9 @@ export default function RegisterPage() {
       if (result.error) {
         setError(result.error.message ?? "Erro ao criar conta");
       } else {
+        // Auto-create a personal workspace so organizationId is always available
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now();
+        await authClient.organization.create({ name: `${name}'s Workspace`, slug });
         router.push("/");
       }
     } catch {

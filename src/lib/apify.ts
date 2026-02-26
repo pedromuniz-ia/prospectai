@@ -73,10 +73,11 @@ export async function runGoogleMapsScraper(input: {
 }): Promise<ExtractedLead[]> {
   const client = getClient();
 
-  const run = await client.actor("apify/google-maps-scraper").call({
-    searchStringsArray: [`${input.searchQuery} em ${input.locationQuery}`],
+  const run = await client.actor("compass/crawler-google-places").call({
+    searchStringsArray: [`${input.searchQuery} ${input.locationQuery}`],
     maxCrawledPlacesPerSearch: input.maxResults,
     language: "pt-BR",
+    countryCode: "br",
   });
 
   if (!run.defaultDatasetId) return [];
