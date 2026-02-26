@@ -98,7 +98,13 @@ export function LeadsDataTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">
-              <Checkbox checked={allSelected} onCheckedChange={(value) => onToggleAll(Boolean(value))} />
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(value) => {
+                  if (value === "indeterminate") return;
+                  onToggleAll(Boolean(value));
+                }}
+              />
             </TableHead>
             <TableHead>Nome</TableHead>
             <TableHead>Categoria</TableHead>
