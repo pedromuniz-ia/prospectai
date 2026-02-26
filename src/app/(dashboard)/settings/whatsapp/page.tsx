@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 import {
   getInstances,
@@ -174,10 +175,17 @@ export default function WhatsAppSettingsPage() {
 
             {qrCode ? (
               <div className="flex flex-col items-center gap-4 py-4">
-                <img
-                  src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
+                <Image
+                  src={
+                    qrCode.startsWith("data:")
+                      ? qrCode
+                      : `data:image/png;base64,${qrCode}`
+                  }
                   alt="QR Code"
+                  width={256}
+                  height={256}
                   className="h-64 w-64 rounded-lg"
+                  unoptimized
                 />
                 <p className="text-center text-sm text-muted-foreground">
                   Abra o WhatsApp no celular e escaneie o QR Code

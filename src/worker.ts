@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./lib/runtime-env-bootstrap";
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
 import { processExtraction } from "./workers/extraction";
