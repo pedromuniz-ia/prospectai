@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { whatsappInstances } from "@/db/schema/whatsapp-instances";
 import { messages } from "@/db/schema/messages";
 import { leads } from "@/db/schema/leads";
+import { campaignLeads } from "@/db/schema/campaign-leads";
+import { campaigns } from "@/db/schema/campaigns";
 import {
   type WebhookEvent,
   type MessagesUpsertData,
@@ -14,6 +16,8 @@ import {
   detectMediaType,
   phoneFromJid,
 } from "@/lib/evolution-api";
+import { createNotificationRecord } from "@/lib/notifications";
+import { aiReplyQueue } from "@/lib/queue";
 
 // ── Webhook Event Handlers ──
 
@@ -68,9 +72,24 @@ async function handleMessagesUpsert(
     const mediaType = detectMediaType(data);
 
     // Save inbound message
+    const campaignContext = await db
+      .select({
+        campaignLeadId: campaignLeads.id,
+        campaignId: campaigns.id,
+        aiEnabled: campaigns.aiEnabled,
+      })
+      .from(campaignLeads)
+      .innerJoin(campaigns, eq(campaigns.id, campaignLeads.campaignId))
+      .where(eq(campaignLeads.leadId, lead.id))
+      .orderBy(desc(campaignLeads.updatedAt))
+      .limit(1);
+
+    const activeCampaign = campaignContext[0] ?? null;
+
     await db.insert(messages).values({
       organizationId: instance.organizationId,
       leadId: lead.id,
+      campaignLeadId: activeCampaign?.campaignLeadId ?? null,
       whatsappInstanceId: instance.id,
       direction: "inbound",
       content: text ?? "[media]",
@@ -92,6 +111,36 @@ async function handleMessagesUpsert(
         updatedAt: new Date(),
       })
       .where(eq(leads.id, lead.id));
+
+    if (activeCampaign) {
+      await db
+        .update(campaignLeads)
+        .set({
+          status: "replied",
+          pipelineStage: "replied",
+          updatedAt: new Date(),
+        })
+        .where(eq(campaignLeads.id, activeCampaign.campaignLeadId));
+
+      if (activeCampaign.aiEnabled) {
+        await aiReplyQueue.add("ai-reply", {
+          campaignLeadId: activeCampaign.campaignLeadId,
+          leadId: lead.id,
+          organizationId: instance.organizationId,
+        });
+      }
+    }
+
+    if (lead.score >= 70) {
+      await createNotificationRecord({
+        organizationId: instance.organizationId,
+        type: "lead_replied",
+        title: "Lead quente respondeu",
+        body: `${lead.name} respondeu e está com score ${lead.score}.`,
+        entityType: "lead",
+        entityId: lead.id,
+      });
+    }
   }
 }
 
@@ -116,6 +165,23 @@ async function handleConnectionUpdate(
       updatedAt: new Date(),
     })
     .where(eq(whatsappInstances.instanceName, instanceName));
+
+  if (newStatus === "disconnected") {
+    const instance = await db.query.whatsappInstances.findFirst({
+      where: eq(whatsappInstances.instanceName, instanceName),
+    });
+
+    if (instance) {
+      await createNotificationRecord({
+        organizationId: instance.organizationId,
+        type: "instance_disconnected",
+        title: "Instância desconectada",
+        body: `${instance.instanceName} foi desconectada.`,
+        entityType: "whatsapp_instance",
+        entityId: instance.id,
+      });
+    }
+  }
 }
 
 async function handleQRCodeUpdate(
