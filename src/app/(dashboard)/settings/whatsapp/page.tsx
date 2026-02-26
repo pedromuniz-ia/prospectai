@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -10,11 +10,17 @@ import {
   deleteInstance,
   refreshInstanceStatus,
 } from "@/lib/actions/whatsapp";
+import {
+  ConfirmDialog,
+  EmptyState,
+  FormField,
+  LoadingButton,
+  StatusBadge,
+} from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -29,19 +35,10 @@ import {
   Trash2,
   LogOut,
   Loader2,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
 type Instance = Awaited<ReturnType<typeof getInstances>>[number];
-
-const statusConfig = {
-  connected: { label: "Conectado", variant: "default" as const, icon: Wifi },
-  connecting: { label: "Conectando", variant: "secondary" as const, icon: Loader2 },
-  disconnected: { label: "Desconectado", variant: "outline" as const, icon: WifiOff },
-  banned: { label: "Banido", variant: "destructive" as const, icon: WifiOff },
-} as const;
 
 export default function WhatsAppSettingsPage() {
   const { data: session } = authClient.useSession();
@@ -54,6 +51,7 @@ export default function WhatsAppSettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pollingInstanceId, setPollingInstanceId] = useState<string | null>(null);
+  const [qrCountdown, setQrCountdown] = useState(25);
 
   const orgId = activeOrg.data?.id;
 
@@ -73,6 +71,22 @@ export default function WhatsAppSettingsPage() {
     loadInstances();
   }, [loadInstances]);
 
+  // QR code countdown timer
+  useEffect(() => {
+    if (!qrCode) return;
+    setQrCountdown(25);
+    const timer = setInterval(() => {
+      setQrCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [qrCode]);
+
   // Poll for QR code connection
   useEffect(() => {
     if (!pollingInstanceId) return;
@@ -88,7 +102,6 @@ export default function WhatsAppSettingsPage() {
           toast.success("WhatsApp conectado!");
           loadInstances();
         } else {
-          // Refresh instances to get updated QR code
           loadInstances();
         }
       } catch {
@@ -120,6 +133,21 @@ export default function WhatsAppSettingsPage() {
     }
   }
 
+  async function handleRegenerateQr() {
+    if (!pollingInstanceId || !orgId) return;
+    setConnecting(true);
+    try {
+      const instance = await connectInstance(orgId, newInstanceName.trim());
+      if (instance.qrCode) {
+        setQrCode(instance.qrCode);
+      }
+    } catch {
+      toast.error("Erro ao gerar novo QR Code");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   async function handleDisconnect(instanceId: string) {
     try {
       await disconnectInstance(instanceId);
@@ -131,13 +159,9 @@ export default function WhatsAppSettingsPage() {
   }
 
   async function handleDelete(instanceId: string) {
-    try {
-      await deleteInstance(instanceId);
-      toast.success("Instância removida");
-      loadInstances();
-    } catch {
-      toast.error("Erro ao remover");
-    }
+    await deleteInstance(instanceId);
+    toast.success("Instância removida");
+    loadInstances();
   }
 
   async function handleRefresh(instanceId: string) {
@@ -190,40 +214,44 @@ export default function WhatsAppSettingsPage() {
                 <p className="text-center text-sm text-muted-foreground">
                   Abra o WhatsApp no celular e escaneie o QR Code
                 </p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Aguardando conexão...
-                </div>
+                {qrCountdown > 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Expira em {qrCountdown}s
+                  </div>
+                ) : (
+                  <LoadingButton
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRegenerateQr}
+                  >
+                    Gerar novo QR
+                  </LoadingButton>
+                )}
               </div>
             ) : (
               <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="instance-name">Nome da instância</Label>
+                <FormField
+                  label="Nome da instância"
+                  htmlFor="instance-name"
+                  helper="Dê um nome para identificar este número. Ex: Comercial, Suporte"
+                >
                   <Input
                     id="instance-name"
-                    placeholder="ex: prospectai-01"
+                    placeholder="ex: comercial-01"
                     value={newInstanceName}
                     onChange={(e) => setNewInstanceName(e.target.value)}
                     disabled={connecting}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Identificador único para esta conexão
-                  </p>
-                </div>
-                <Button
+                </FormField>
+                <LoadingButton
                   onClick={handleConnect}
-                  disabled={connecting || !newInstanceName.trim()}
+                  disabled={!newInstanceName.trim()}
+                  loading={connecting}
                   className="w-full"
                 >
-                  {connecting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando...
-                    </>
-                  ) : (
-                    "Gerar QR Code"
-                  )}
-                </Button>
+                  Gerar QR Code
+                </LoadingButton>
               </div>
             )}
           </DialogContent>
@@ -235,77 +263,94 @@ export default function WhatsAppSettingsPage() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : instances.length === 0 ? (
-        <Card className="flex flex-col items-center gap-3 py-12">
-          <Smartphone className="h-10 w-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Nenhuma instância conectada
-          </p>
-        </Card>
+        <EmptyState
+          icon={Smartphone}
+          title="Nenhuma instância conectada"
+          description="Conecte um número de WhatsApp para enviar mensagens automaticamente."
+          action={{
+            label: "Conectar número",
+            onClick: () => setConnectDialogOpen(true),
+          }}
+        />
       ) : (
         <div className="space-y-3">
           {instances.map((instance) => {
-            const config = statusConfig[instance.status as keyof typeof statusConfig] ??
-              statusConfig.disconnected;
-            const StatusIcon = config.icon;
+            const usagePercent =
+              instance.dailyMessageLimit > 0
+                ? Math.round(
+                    (instance.dailyMessagesSent / instance.dailyMessageLimit) * 100
+                  )
+                : 0;
 
             return (
               <Card
                 key={instance.id}
-                className="flex items-center justify-between p-4"
+                className="p-4"
               >
-                <div className="flex items-center gap-3">
-                  <StatusIcon
-                    className={`h-5 w-5 ${
-                      instance.status === "connected"
-                        ? "text-green-500"
-                        : instance.status === "connecting"
-                          ? "animate-spin text-yellow-500"
-                          : "text-muted-foreground"
-                    }`}
-                  />
-                  <div>
-                    <p className="text-sm font-medium">
-                      {instance.instanceName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {instance.phone ?? "Sem número"}
-                      {" · "}
-                      {instance.dailyMessagesSent}/{instance.dailyMessageLimit} msgs hoje
-                    </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">
+                          {instance.instanceName}
+                        </p>
+                        <StatusBadge domain="instanceStatus" value={instance.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {instance.phone ?? "Sem número"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleRefresh(instance.id)}
+                      title="Atualizar status"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+
+                    {instance.status === "connected" ? (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleDisconnect(instance.id)}
+                        title="Desconectar"
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <ConfirmDialog
+                        title="Remover instância"
+                        description={`Deseja remover "${instance.instanceName}"? Esta ação não pode ser desfeita.`}
+                        confirmText="Remover"
+                        destructive
+                        onConfirm={() => handleDelete(instance.id)}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Remover instância"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </ConfirmDialog>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Badge variant={config.variant}>{config.label}</Badge>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleRefresh(instance.id)}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-
-                  {instance.status === "connected" ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDisconnect(instance.id)}
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => handleDelete(instance.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                {/* Daily usage bar */}
+                <div className="mt-3 space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Uso diário</span>
+                    <span>
+                      {instance.dailyMessagesSent}/{instance.dailyMessageLimit} msgs
+                    </span>
+                  </div>
+                  <Progress value={usagePercent} className="h-1.5" />
                 </div>
               </Card>
             );
