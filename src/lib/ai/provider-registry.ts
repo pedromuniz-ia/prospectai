@@ -18,6 +18,28 @@ function resolveBaseUrl(provider: AIProviderRow): string | undefined {
   return provider.baseUrl ?? undefined;
 }
 
+/** Returns the base URL for API calls (used for listing models, etc.) */
+export function getProviderBaseUrl(provider: AIProviderRow): string {
+  switch (provider.provider) {
+    case "openai":
+      return "https://api.openai.com/v1";
+    case "anthropic":
+      return "https://api.anthropic.com/v1";
+    case "google":
+      return "https://generativelanguage.googleapis.com/v1beta";
+    case "groq":
+      return "https://api.groq.com/openai/v1";
+    case "together":
+      return "https://api.together.xyz/v1";
+    case "fireworks":
+      return "https://api.fireworks.ai/inference/v1";
+    case "openai_compatible":
+      return provider.baseUrl ?? "";
+    default:
+      return "";
+  }
+}
+
 export function getModel(provider: AIProviderRow): LanguageModel {
   switch (provider.provider) {
     case "openai": {
