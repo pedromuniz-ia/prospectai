@@ -10,11 +10,11 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
 import { authClient } from "@/lib/auth-client";
 import { searchLeadsQuick } from "@/lib/actions/leads";
-import { Rocket, Search, Settings, Sparkles, Users } from "lucide-react";
+import { MessageSquare, Rocket, Search, Settings, Smartphone, Users } from "lucide-react";
 
 export function CommandPalette() {
   const router = useRouter();
@@ -49,6 +49,15 @@ export function CommandPalette() {
     return () => clearTimeout(timeout);
   }, [organizationId, query]);
 
+  function handleOpenChange(value: boolean) {
+    setOpen(value);
+    if (!value) {
+      // Reset state when dialog closes
+      setQuery("");
+      setLeads([]);
+    }
+  }
+
   function handleQueryChange(value: string) {
     setQuery(value);
     if (!value.trim()) {
@@ -70,7 +79,7 @@ export function CommandPalette() {
       },
       {
         label: "Conectar WhatsApp",
-        icon: Sparkles,
+        icon: Smartphone,
         action: () => router.push("/settings/whatsapp"),
       },
     ],
@@ -78,7 +87,7 @@ export function CommandPalette() {
   );
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={handleOpenChange}>
       <CommandInput
         placeholder="Buscar lead, navegar ou executar ação..."
         value={query}
@@ -90,33 +99,30 @@ export function CommandPalette() {
         <CommandGroup heading="Navegação">
           <CommandItem
             onSelect={() => {
-              setOpen(false);
+              handleOpenChange(false);
               router.push("/inbox");
             }}
           >
-            <Sparkles className="h-4 w-4" />
+            <MessageSquare className="h-4 w-4" />
             Ir para Inbox
-            <CommandShortcut>G I</CommandShortcut>
           </CommandItem>
           <CommandItem
             onSelect={() => {
-              setOpen(false);
+              handleOpenChange(false);
               router.push("/leads");
             }}
           >
             <Users className="h-4 w-4" />
             Ir para Leads
-            <CommandShortcut>G L</CommandShortcut>
           </CommandItem>
           <CommandItem
             onSelect={() => {
-              setOpen(false);
-              router.push("/settings");
+              handleOpenChange(false);
+              router.push("/settings/general");
             }}
           >
             <Settings className="h-4 w-4" />
             Ir para Configurações
-            <CommandShortcut>G S</CommandShortcut>
           </CommandItem>
         </CommandGroup>
 
@@ -127,7 +133,7 @@ export function CommandPalette() {
             <CommandItem
               key={action.label}
               onSelect={() => {
-                setOpen(false);
+                handleOpenChange(false);
                 action.action();
               }}
             >
@@ -137,23 +143,29 @@ export function CommandPalette() {
           ))}
         </CommandGroup>
 
-        <CommandSeparator />
+        {leads.length > 0 && (
+          <>
+            <CommandSeparator />
 
-        <CommandGroup heading="Leads">
-          {leads.map((lead) => (
-            <CommandItem
-              key={lead.id}
-              onSelect={() => {
-                setOpen(false);
-                router.push(`/leads?leadId=${lead.id}`);
-              }}
-            >
-              <Users className="h-4 w-4" />
-              {lead.name}
-              <CommandShortcut>{lead.score}</CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
+            <CommandGroup heading="Leads">
+              {leads.map((lead) => (
+                <CommandItem
+                  key={lead.id}
+                  onSelect={() => {
+                    handleOpenChange(false);
+                    router.push(`/leads?leadId=${lead.id}`);
+                  }}
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="flex-1">{lead.name}</span>
+                  <Badge variant="outline" className="ml-2 text-xs">
+                    {lead.score} pts
+                  </Badge>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
       </CommandList>
     </CommandDialog>
   );
