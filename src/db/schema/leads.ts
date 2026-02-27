@@ -32,14 +32,30 @@ export const leads = sqliteTable(
     }),
     sourceId: text("source_id"),
 
+    // Google Maps data
+    googlePlaceId: text("google_place_id"),
+    googleMapsUrl: text("google_maps_url"),
+    googleRank: integer("google_rank"),
+    imageUrl: text("image_url"),
+
     // Enriched data
     hasWebsite: integer("has_website", { mode: "boolean" }),
     websiteStatus: text("website_status", {
       enum: ["active", "inactive", "parked", "error"],
     }),
     hasSsl: integer("has_ssl", { mode: "boolean" }),
+    hasWhatsapp: integer("has_whatsapp", { mode: "boolean" }),
+    whatsappIsBusinessAccount: integer("whatsapp_is_business_account", { mode: "boolean" }),
+    whatsappBusinessDescription: text("whatsapp_business_description"),
+    whatsappBusinessEmail: text("whatsapp_business_email"),
+    whatsappBusinessWebsite: text("whatsapp_business_website"),
     hasInstagram: integer("has_instagram", { mode: "boolean" }),
     instagramUrl: text("instagram_url"),
+    instagramUsername: text("instagram_username"),
+    instagramFollowers: integer("instagram_followers"),
+    instagramBiography: text("instagram_biography"),
+    instagramIsBusinessAccount: integer("instagram_is_business_account", { mode: "boolean" }),
+    instagramExternalUrl: text("instagram_external_url"),
     hasGoogleBusiness: integer("has_google_business", { mode: "boolean" }).default(true),
     googleRating: real("google_rating"),
     googleReviewCount: integer("google_review_count"),

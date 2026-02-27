@@ -25,8 +25,21 @@ async function findDuplicateLead(
   organizationId: string,
   name: string,
   phone: string | null,
-  website: string | null
+  website: string | null,
+  googlePlaceId: string | null
 ) {
+  // 1. googlePlaceId is the most reliable key
+  if (googlePlaceId) {
+    const byPlaceId = await db.query.leads.findFirst({
+      where: and(
+        eq(leads.organizationId, organizationId),
+        eq(leads.googlePlaceId, googlePlaceId)
+      ),
+    });
+    if (byPlaceId) return byPlaceId;
+  }
+
+  // 2. Phone (normalized)
   if (phone) {
     const byPhone = await db.query.leads.findFirst({
       where: and(eq(leads.organizationId, organizationId), eq(leads.phone, phone)),
@@ -35,6 +48,7 @@ async function findDuplicateLead(
     if (byPhone) return byPhone;
   }
 
+  // 3. Name + website
   if (website) {
     return db.query.leads.findFirst({
       where: and(
@@ -47,10 +61,7 @@ async function findDuplicateLead(
   }
 
   return db.query.leads.findFirst({
-    where: and(
-      eq(leads.organizationId, organizationId),
-      eq(leads.name, name)
-    ),
+    where: and(eq(leads.organizationId, organizationId), eq(leads.name, name)),
     orderBy: [desc(leads.createdAt)],
   });
 }
@@ -84,7 +95,8 @@ export async function processExtraction(job: Job<ExtractionJobData>) {
         data.organizationId,
         result.name,
         phone,
-        result.website
+        result.website,
+        result.googlePlaceId
       );
 
       if (duplicate) {
@@ -111,6 +123,10 @@ export async function processExtraction(job: Job<ExtractionJobData>) {
           businessHours: result.businessHours,
           latitude: result.latitude,
           longitude: result.longitude,
+          googlePlaceId: result.googlePlaceId,
+          googleMapsUrl: result.googleMapsUrl,
+          googleRank: result.googleRank,
+          imageUrl: result.imageUrl,
           status: "new",
         })
         .returning();

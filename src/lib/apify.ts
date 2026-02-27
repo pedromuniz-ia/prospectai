@@ -15,6 +15,9 @@ type RawApifyItem = {
   reviewsCount?: number;
   openingHours?: unknown;
   location?: { lat?: number; lng?: number };
+  placeId?: string;
+  rank?: number;
+  imageUrl?: string;
 };
 
 export type ExtractedLead = {
@@ -31,13 +34,17 @@ export type ExtractedLead = {
   latitude: number | null;
   longitude: number | null;
   domain: string | null;
+  googlePlaceId: string | null;
+  googleMapsUrl: string | null;
+  googleRank: number | null;
+  imageUrl: string | null;
 };
 
 function mapItem(item: RawApifyItem): ExtractedLead | null {
   if (!item.title) return null;
 
   const parsedState = item.state ?? item.address?.split(",").at(-1)?.trim() ?? null;
-  const website = item.website ?? item.url ?? null;
+  const website = item.website ?? null;
 
   return {
     name: item.title,
@@ -54,6 +61,10 @@ function mapItem(item: RawApifyItem): ExtractedLead | null {
     latitude: typeof item.location?.lat === "number" ? item.location.lat : null,
     longitude: typeof item.location?.lng === "number" ? item.location.lng : null,
     domain: extractDomain(website),
+    googlePlaceId: item.placeId ?? null,
+    googleMapsUrl: item.url ?? null,
+    googleRank: typeof item.rank === "number" ? item.rank : null,
+    imageUrl: item.imageUrl ?? null,
   };
 }
 
