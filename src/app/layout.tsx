@@ -35,6 +35,7 @@ export default function RootLayout({
     <html lang="pt-BR" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        suppressHydrationWarning
       >
         <TooltipProvider>
           {children}

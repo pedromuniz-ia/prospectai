@@ -3,12 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Smartphone, Brain, Target, FileText, Settings2 } from "lucide-react";
+import {
+  Brain,
+  Building2,
+  FileText,
+  Settings2,
+  Smartphone,
+  Target,
+  ThermometerSnowflake,
+} from "lucide-react";
 
 const settingsTabs = [
+  { href: "/settings/general", label: "Conta", icon: Building2 },
   { href: "/settings/whatsapp", label: "WhatsApp", icon: Smartphone },
   { href: "/settings/ai", label: "IA & Modelos", icon: Brain },
   { href: "/settings/scoring", label: "Lead Scoring", icon: Target },
+  { href: "/settings/warmup", label: "Warm-up", icon: ThermometerSnowflake },
   { href: "/settings/templates", label: "Templates", icon: FileText },
   { href: "/settings/advanced", label: "Avançado", icon: Settings2 },
 ];
@@ -21,8 +31,36 @@ export default function SettingsLayout({
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full">
-      <nav className="w-48 border-r border-border p-4">
+    <div className="flex h-full flex-col md:flex-row">
+      {/* Mobile: horizontal scrollable tabs */}
+      <div className="relative md:hidden">
+        <nav className="flex overflow-x-auto border-b border-border px-2 py-2">
+          <div className="flex gap-1">
+            {settingsTabs.map((tab) => {
+              const isActive = pathname === tab.href;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                    isActive
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent" />
+      </div>
+
+      {/* Desktop: vertical sidebar */}
+      <nav className="hidden md:block w-48 shrink-0 border-r border-border p-4">
         <h2 className="mb-4 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Configurações
         </h2>
@@ -47,6 +85,7 @@ export default function SettingsLayout({
           })}
         </div>
       </nav>
+
       <div className="flex-1 overflow-auto">{children}</div>
     </div>
   );
