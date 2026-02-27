@@ -5,9 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Menu,
-  MessageSquare,
   Users,
-  Rocket,
   Database,
   Settings,
 } from "lucide-react";
@@ -21,9 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/leads", label: "Leads", icon: Users },
-  { href: "/campaigns", label: "Campanhas", icon: Rocket },
   { href: "/extraction", label: "Extração", icon: Database },
 ];
 

@@ -6,10 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Filter,
   Globe,
-  KanbanSquare,
-  List,
   MapPin,
-  MessageSquare,
   Phone,
   Search,
   SlidersHorizontal,
@@ -18,17 +15,12 @@ import {
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import {
-  bulkAddToCampaign,
   getFilterOptions,
   getLead,
-  getLeadBoard,
   getLeads,
   type LeadFilters,
-  updateCampaignLeadStage,
 } from "@/lib/actions/leads";
-import { getCampaigns } from "@/lib/actions/campaigns";
 import { LeadsDataTable } from "@/app/(dashboard)/leads/data-table";
-import { BoardView } from "@/app/(dashboard)/leads/board-view";
 import { ScoreBadge } from "@/app/(dashboard)/leads/columns";
 import { StatusBadge } from "@/components/ds";
 import { Badge } from "@/components/ui/badge";
@@ -50,8 +42,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatRelativeTime } from "@/lib/helpers";
-import { t, entries } from "@/lib/i18n";
+import { entries } from "@/lib/i18n";
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -75,16 +66,11 @@ function LeadsPageContent() {
   const [rows, setRows] = useState<Awaited<ReturnType<typeof getLeads>>["rows"]>([]);
   const [count, setCount] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
-  const [campaigns, setCampaigns] = useState<Awaited<ReturnType<typeof getCampaigns>>>([]);
-  const [boardRows, setBoardRows] = useState<Awaited<ReturnType<typeof getLeadBoard>>>([]);
   const [leadDetails, setLeadDetails] = useState<Awaited<ReturnType<typeof getLead>> | null>(null);
   const [filterOptions, setFilterOptions] = useState<{ categories: string[]; cities: string[] }>({ categories: [], cities: [] });
 
   const page = Number(searchParams.get("page") ?? "1");
-  const view = searchParams.get("view") === "board" ? "board" : "table";
   const leadId = searchParams.get("leadId");
-  const boardCampaignId = searchParams.get("campaignId") ?? "";
-  const bulkCampaignId = searchParams.get("bulkCampaignId") ?? "";
 
   const filters = useMemo<LeadFilters>(
     () => ({
@@ -109,7 +95,6 @@ function LeadsPageContent() {
           : searchParams.get("hasWebsite") === "false"
             ? false
             : undefined,
-      campaignId: searchParams.get("filterCampaignId") ?? undefined,
       aiClassification: searchParams
         .get("aiClassification")
         ?.split(",")
@@ -134,23 +119,14 @@ function LeadsPageContent() {
     setLoading(true);
 
     try {
-      const [leadResult, campaignResult, filterOpts] = await Promise.all([
+      const [leadResult, filterOpts] = await Promise.all([
         getLeads(organizationId, filters),
-        getCampaigns(organizationId),
         getFilterOptions(organizationId),
       ]);
 
       setRows(leadResult.rows);
       setCount(leadResult.count);
-      setCampaigns(campaignResult);
       setFilterOptions(filterOpts);
-
-      if (view === "board" && boardCampaignId) {
-        const board = await getLeadBoard(organizationId, boardCampaignId);
-        setBoardRows(board);
-      } else {
-        setBoardRows([]);
-      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Erro ao carregar leads"
@@ -158,7 +134,7 @@ function LeadsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [boardCampaignId, filters, organizationId, view]);
+  }, [filters, organizationId]);
 
   const loadLeadDetails = useCallback(async () => {
     if (!leadId) {
@@ -183,27 +159,6 @@ function LeadsPageContent() {
   const categoryOptions = filterOptions.categories;
   const cityOptions = filterOptions.cities;
 
-  async function handleBulkAdd() {
-    if (!organizationId) return;
-    if (!bulkCampaignId) {
-      toast.error("Selecione uma campanha para o bulk add.");
-      return;
-    }
-
-    await bulkAddToCampaign(selected, bulkCampaignId, organizationId);
-    toast.success("Leads adicionados à campanha.");
-    setSelected([]);
-    await loadLeads();
-  }
-
-  async function handleMoveStage(campaignLeadId: string, stage: string) {
-    await updateCampaignLeadStage(
-      campaignLeadId,
-      stage as "new" | "approached" | "replied" | "interested" | "proposal" | "won" | "lost"
-    );
-    await loadLeads();
-  }
-
   return (
     <div className="relative min-h-full overflow-hidden p-5 md:p-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(59,130,246,.14),transparent_45%),radial-gradient(circle_at_85%_10%,rgba(16,185,129,.10),transparent_38%)]" />
@@ -216,27 +171,8 @@ function LeadsPageContent() {
                 <h1 className="font-display text-2xl">Leads</h1>
               </div>
               <p className="text-muted-foreground mt-1 text-sm">
-                Qualifique, priorize e mova oportunidades com ritmo operacional.
+                Qualifique, priorize e exporte oportunidades.
               </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant={view === "table" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setParam("view", "table")}
-              >
-                <List className="mr-2 h-4 w-4" />
-                Tabela
-              </Button>
-              <Button
-                variant={view === "board" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setParam("view", "board")}
-              >
-                <KanbanSquare className="mr-2 h-4 w-4" />
-                Board
-              </Button>
             </div>
           </div>
 
@@ -370,47 +306,21 @@ function LeadsPageContent() {
               Ordenado por score
             </Badge>
           </div>
-
-          {selected.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-              <Select
-                value={bulkCampaignId || "none"}
-                onValueChange={(value) =>
-                  setParam("bulkCampaignId", value === "none" ? null : value)
-                }
-              >
-                <SelectTrigger className="w-72">
-                  <SelectValue placeholder="Selecione campanha para bulk add" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Selecione...</SelectItem>
-                  {campaigns.map((campaign) => (
-                    <SelectItem key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button size="sm" onClick={handleBulkAdd}>
-                Adicionar {selected.length} leads
-              </Button>
-            </div>
-          )}
         </Card>
 
         {loading ? (
           <Card className="border-border/70 bg-card/70 p-8 text-center text-muted-foreground">
             Carregando leads...
           </Card>
-        ) : view === "table" ? (
+        ) : (
           <LeadsDataTable
             leads={rows}
             selected={selected}
-            onToggle={(leadId, checked) => {
+            onToggle={(nextLeadId, checked) => {
               setSelected((current) =>
                 checked
-                  ? Array.from(new Set([...current, leadId]))
-                  : current.filter((id) => id !== leadId)
+                  ? Array.from(new Set([...current, nextLeadId]))
+                  : current.filter((id) => id !== nextLeadId)
               );
             }}
             onToggleAll={(checked) => {
@@ -418,90 +328,32 @@ function LeadsPageContent() {
               else setSelected([]);
             }}
             onOpenLead={(nextLeadId) => setParam("leadId", nextLeadId)}
-            onBulkAdd={handleBulkAdd}
           />
-        ) : !boardCampaignId ? (
-          <Card className="border-border/70 bg-card/70 p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              Selecione uma campanha para visualizar o board.
-            </p>
-            <div className="mx-auto mt-3 w-72">
-              <Select
-                value={boardCampaignId || "none"}
-                onValueChange={(value) =>
-                  setParam("campaignId", value === "none" ? null : value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Escolha uma campanha" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Escolha...</SelectItem>
-                  {campaigns.map((campaign) => (
-                    <SelectItem key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Select
-                value={boardCampaignId || "none"}
-                onValueChange={(value) =>
-                  setParam("campaignId", value === "none" ? null : value)
-                }
-              >
-                <SelectTrigger className="w-80">
-                  <SelectValue placeholder="Campanha" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Escolha...</SelectItem>
-                  {campaigns.map((campaign) => (
-                    <SelectItem key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Badge variant="outline">{boardRows.length} cards</Badge>
-            </div>
-            <BoardView
-              rows={boardRows}
-              onMove={handleMoveStage}
-              onOpenLead={(nextLeadId) => setParam("leadId", nextLeadId)}
-            />
-          </div>
         )}
 
-        {view === "table" && (
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              Mostrando {(page - 1) * DEFAULT_PAGE_SIZE + 1} - {Math.min(page * DEFAULT_PAGE_SIZE, count)} de {count}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setParam("page", String(page - 1))}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setParam("page", String(page + 1))}
-              >
-                Próxima
-              </Button>
-            </div>
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Mostrando {(page - 1) * DEFAULT_PAGE_SIZE + 1} - {Math.min(page * DEFAULT_PAGE_SIZE, count)} de {count}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setParam("page", String(page - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setParam("page", String(page + 1))}
+            >
+              Próxima
+            </Button>
           </div>
-        )}
+        </div>
       </div>
 
       <Sheet
@@ -574,15 +426,6 @@ function LeadsPageContent() {
                   )}
                 </section>
 
-                <div className="flex justify-center">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/inbox?leadId=${leadDetails.id}`}>
-                      <MessageSquare className="mr-2 h-4 w-4" />
-                      Ver conversa completa
-                    </Link>
-                  </Button>
-                </div>
-
                 <section className="rounded-xl border border-border/70 bg-card/50 p-4">
                   <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Detalhamento da pontuação</p>
                   <div className="mt-3 space-y-2">
@@ -607,49 +450,6 @@ function LeadsPageContent() {
                     })()}
                     {Object.keys(leadDetails.parsedScoreBreakdown).length === 0 && (
                       <p className="text-xs text-muted-foreground">Sem breakdown disponível.</p>
-                    )}
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-border/70 bg-card/50 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Campanhas</p>
-                  <div className="mt-3 space-y-2">
-                    {leadDetails.campaignRows.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Sem campanhas associadas.</p>
-                    ) : (
-                      leadDetails.campaignRows.map((campaignRow) => (
-                        <div
-                          key={campaignRow.campaignLeadId}
-                          className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2"
-                        >
-                          <div>
-                            <p className="text-sm font-medium">{campaignRow.campaignName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {t("pipelineStage", campaignRow.pipelineStage)}
-                            </p>
-                          </div>
-                          <StatusBadge domain="campaignLeadStatus" value={campaignRow.leadStatus} />
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-border/70 bg-card/50 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Mensagens recentes</p>
-                  <div className="mt-3 space-y-2">
-                    {leadDetails.recentMessages.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Sem mensagens recentes.</p>
-                    ) : (
-                      leadDetails.recentMessages.slice(0, 8).map((message) => (
-                        <div key={message.id} className="rounded-lg border border-border/60 p-3">
-                          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{message.direction === "inbound" ? "Entrada" : "Saída"}</span>
-                            <span>{formatRelativeTime(message.createdAt)}</span>
-                          </div>
-                          <p className="text-sm">{message.content}</p>
-                        </div>
-                      ))
                     )}
                   </div>
                 </section>

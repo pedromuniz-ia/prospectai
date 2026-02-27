@@ -6,11 +6,9 @@ import { cn } from "@/lib/utils";
 import {
   Brain,
   Building2,
-  FileText,
   Settings2,
   Smartphone,
   Target,
-  ThermometerSnowflake,
 } from "lucide-react";
 
 const settingsTabs = [
@@ -18,8 +16,6 @@ const settingsTabs = [
   { href: "/settings/whatsapp", label: "WhatsApp", icon: Smartphone },
   { href: "/settings/ai", label: "IA & Modelos", icon: Brain },
   { href: "/settings/scoring", label: "Lead Scoring", icon: Target },
-  { href: "/settings/warmup", label: "Warm-up", icon: ThermometerSnowflake },
-  { href: "/settings/templates", label: "Templates", icon: FileText },
   { href: "/settings/advanced", label: "Avançado", icon: Settings2 },
 ];
 

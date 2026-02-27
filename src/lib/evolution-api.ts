@@ -175,6 +175,51 @@ export class EvolutionAPI {
       `/instance/delete/${encodeURIComponent(instanceName)}`
     );
   }
+
+  async checkWhatsappNumbers(
+    instanceName: string,
+    numbers: string[]
+  ): Promise<Array<{ exists: boolean; jid: string; number: string }>> {
+    return this.request<Array<{ exists: boolean; jid: string; number: string }>>(
+      "POST",
+      `/chat/whatsappNumbers/${encodeURIComponent(instanceName)}`,
+      { numbers }
+    );
+  }
+
+  async fetchProfile(
+    instanceName: string,
+    number: string
+  ): Promise<{ name?: string; status?: string; picture?: string }> {
+    return this.request<{ name?: string; status?: string; picture?: string }>(
+      "POST",
+      `/chat/fetchProfile/${encodeURIComponent(instanceName)}`,
+      { number }
+    );
+  }
+
+  async fetchBusinessProfile(
+    instanceName: string,
+    number: string
+  ): Promise<{
+    isBusiness: boolean;
+    description?: string;
+    email?: string;
+    website?: string[];
+    category?: string;
+  }> {
+    return this.request<{
+      isBusiness: boolean;
+      description?: string;
+      email?: string;
+      website?: string[];
+      category?: string;
+    }>(
+      "POST",
+      `/chat/fetchBusinessProfile/${encodeURIComponent(instanceName)}`,
+      { number }
+    );
+  }
 }
 
 // ── Singleton ──

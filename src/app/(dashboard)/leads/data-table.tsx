@@ -1,11 +1,8 @@
 "use client";
 
-import { Clock3, MessageSquare, MoveRight, PlusCircle } from "lucide-react";
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { MoveRight, Database } from "lucide-react";
 import { ScoreBadge, StatusBadge } from "@/app/(dashboard)/leads/columns";
 import { EmptyState } from "@/components/ds";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -21,7 +18,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatRelativeTime } from "@/lib/helpers";
 
 type LeadRow = {
   id: string;
@@ -30,7 +26,6 @@ type LeadRow = {
   city: string | null;
   score: number;
   status: string;
-  lastContactedAt: Date | null;
   createdAt: Date;
 };
 
@@ -40,37 +35,20 @@ export function LeadsDataTable({
   onToggle,
   onToggleAll,
   onOpenLead,
-  onBulkAdd,
 }: {
   leads: LeadRow[];
   selected: string[];
   onToggle: (leadId: string, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
   onOpenLead: (leadId: string) => void;
-  onBulkAdd: () => void;
 }) {
   const allSelected = leads.length > 0 && selected.length === leads.length;
-  const [referenceNow] = useState(() => Date.now());
-
-  const staleIds = useMemo(() => {
-    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-
-    return new Set(
-      leads
-        .filter((lead) => {
-          if (lead.status !== "contacted" || !lead.lastContactedAt) return false;
-          return (
-            referenceNow - new Date(lead.lastContactedAt).getTime() > threeDaysMs
-          );
-        })
-        .map((lead) => lead.id)
-    );
-  }, [leads, referenceNow]);
+  const someSelected = selected.length > 0 && selected.length < leads.length;
 
   if (leads.length === 0) {
     return (
       <EmptyState
-        icon={MessageSquare}
+        icon={Database}
         title="Nenhum lead encontrado"
         description="Ajuste os filtros ou inicie uma nova extração para popular a base."
       />
@@ -82,16 +60,9 @@ export function LeadsDataTable({
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
         <div className="text-muted-foreground text-xs">
           {selected.length > 0
-            ? `${selected.length} selecionados — selecione uma campanha para ação em lote`
-            : `${leads.length} leads nesta página`}
+            ? `${selected.length} selecionado${selected.length > 1 ? "s" : ""}`
+            : `${leads.length} leads`}
         </div>
-
-        {selected.length > 0 && (
-          <Button size="sm" onClick={onBulkAdd}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar em campanha
-          </Button>
-        )}
       </div>
 
       <Table>
@@ -99,7 +70,7 @@ export function LeadsDataTable({
           <TableRow>
             <TableHead className="w-10">
               <Checkbox
-                checked={allSelected}
+                checked={allSelected ? true : someSelected ? "indeterminate" : false}
                 onCheckedChange={(value) => {
                   if (value === "indeterminate") return;
                   onToggleAll(Boolean(value));
@@ -110,16 +81,14 @@ export function LeadsDataTable({
             <TableHead>Categoria</TableHead>
             <TableHead>Cidade</TableHead>
             <TableHead>Score</TableHead>
-            <TableHead>Último contato</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
+            <TableHead className="w-10" />
           </TableRow>
         </TableHeader>
 
         <TableBody>
           {leads.map((lead) => {
             const checked = selected.includes(lead.id);
-            const isStale = staleIds.has(lead.id);
 
             return (
               <TableRow key={lead.id} data-state={checked ? "selected" : undefined}>
@@ -134,7 +103,7 @@ export function LeadsDataTable({
                   <button
                     type="button"
                     onClick={() => onOpenLead(lead.id)}
-                    className="hover:text-primary text-left text-sm font-medium"
+                    className="hover:text-primary text-left text-sm font-medium transition-colors"
                   >
                     {lead.name}
                   </button>
@@ -146,43 +115,24 @@ export function LeadsDataTable({
                   <ScoreBadge score={lead.score} />
                 </TableCell>
 
-                <TableCell className="text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <span>{formatRelativeTime(lead.lastContactedAt ?? lead.createdAt)}</span>
-                    {isStale && (
-                      <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                        <Clock3 className="mr-1 h-3 w-3" />
-                        Inativo
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-
                 <TableCell>
                   <StatusBadge status={lead.status} />
                 </TableCell>
 
                 <TableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" asChild>
-                          <Link href={`/inbox?leadId=${lead.id}`}>
-                            <MessageSquare className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Ver conversa</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" onClick={() => onOpenLead(lead.id)}>
-                          <MoveRight className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Ver detalhes</TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => onOpenLead(lead.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoveRight className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Ver detalhes</TooltipContent>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             );

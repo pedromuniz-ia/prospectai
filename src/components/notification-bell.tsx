@@ -38,10 +38,10 @@ const iconByType: Record<NotificationType, React.ComponentType<{ className?: str
 };
 
 const hrefByType: Record<NotificationType, (entityId?: string | null) => string> = {
-  lead_replied: (entityId) => entityId ? `/inbox?leadId=${entityId}` : "/inbox",
-  campaign_paused: () => "/campaigns",
+  lead_replied: (entityId) => entityId ? `/leads?leadId=${entityId}` : "/leads",
+  campaign_paused: () => "/leads",
   instance_disconnected: () => "/settings/whatsapp",
-  ai_needs_review: (entityId) => entityId ? `/inbox?leadId=${entityId}` : "/inbox",
+  ai_needs_review: (entityId) => entityId ? `/leads?leadId=${entityId}` : "/leads",
   extraction_complete: () => "/extraction",
 };
 

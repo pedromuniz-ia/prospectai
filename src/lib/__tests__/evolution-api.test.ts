@@ -2,10 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   EvolutionAPI,
   EvolutionAPIError,
-  extractMessageText,
-  detectMediaType,
   phoneFromJid,
-  type MessagesUpsertData,
 } from "../evolution-api";
 
 const BASE_URL = "https://evo.example.com";
@@ -94,37 +91,6 @@ describe("EvolutionAPI", () => {
     });
   });
 
-  describe("sendText", () => {
-    it("sends text message", async () => {
-      const response = {
-        key: { remoteJid: "5511999@s.whatsapp.net", fromMe: true, id: "msg-1" },
-        message: {},
-        messageTimestamp: "1234567890",
-        status: "PENDING",
-      };
-      vi.stubGlobal("fetch", mockFetch(200, response));
-
-      const result = await api.sendText("test", {
-        number: "5511999999999",
-        text: "Hello!",
-        delay: 1000,
-      });
-
-      expect(fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/message/sendText/test`,
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({
-            number: "5511999999999",
-            text: "Hello!",
-            delay: 1000,
-          }),
-        })
-      );
-      expect(result.key.id).toBe("msg-1");
-    });
-  });
-
   describe("setWebhook", () => {
     it("configures webhook", async () => {
       vi.stubGlobal("fetch", mockFetch(201, { webhook: {} }));
@@ -189,14 +155,6 @@ describe("EvolutionAPI", () => {
       );
     });
 
-    it("throws EvolutionAPIError on 500", async () => {
-      vi.stubGlobal("fetch", mockFetch(500, { error: "Internal Server Error" }));
-
-      await expect(
-        api.sendText("test", { number: "123", text: "hi" })
-      ).rejects.toThrow(EvolutionAPIError);
-    });
-
     it("includes response body in error", async () => {
       const errorBody = { status: 401, error: "Unauthorized", response: { message: ["Invalid API key"] } };
       vi.stubGlobal("fetch", mockFetch(401, errorBody));
@@ -236,19 +194,39 @@ describe("EvolutionAPI", () => {
     });
   });
 
-  describe("setPresence", () => {
-    it("sets presence to composing", async () => {
-      vi.stubGlobal("fetch", mockFetch(200, {}));
+  describe("checkWhatsappNumbers", () => {
+    it("checks numbers", async () => {
+      const response = [{ exists: true, jid: "5511999@s.whatsapp.net", number: "5511999" }];
+      vi.stubGlobal("fetch", mockFetch(200, response));
 
-      await api.setPresence("test", { presence: "composing" });
+      const result = await api.checkWhatsappNumbers("test", ["5511999"]);
 
       expect(fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/instance/setPresence/test`,
+        `${BASE_URL}/chat/whatsappNumbers/test`,
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ presence: "composing" }),
+          body: JSON.stringify({ numbers: ["5511999"] }),
         })
       );
+      expect(result[0].exists).toBe(true);
+    });
+  });
+
+  describe("fetchBusinessProfile", () => {
+    it("fetches business profile", async () => {
+      const response = { isBusiness: true, description: "Test business" };
+      vi.stubGlobal("fetch", mockFetch(200, response));
+
+      const result = await api.fetchBusinessProfile("test", "5511999");
+
+      expect(fetch).toHaveBeenCalledWith(
+        `${BASE_URL}/chat/fetchBusinessProfile/test`,
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ number: "5511999" }),
+        })
+      );
+      expect(result.isBusiness).toBe(true);
     });
   });
 });
@@ -261,88 +239,6 @@ describe("Helper functions", () => {
 
     it("handles group JID", () => {
       expect(phoneFromJid("123456@g.us")).toBe("123456");
-    });
-  });
-
-  describe("extractMessageText", () => {
-    it("extracts conversation text", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { conversation: "Hello" },
-      };
-      expect(extractMessageText(data)).toBe("Hello");
-    });
-
-    it("extracts extended text", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { extendedTextMessage: { text: "Extended hello" } },
-      };
-      expect(extractMessageText(data)).toBe("Extended hello");
-    });
-
-    it("extracts image caption", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { imageMessage: { caption: "Check this out", url: "http://..." } },
-      };
-      expect(extractMessageText(data)).toBe("Check this out");
-    });
-
-    it("returns null for no message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-      };
-      expect(extractMessageText(data)).toBeNull();
-    });
-  });
-
-  describe("detectMediaType", () => {
-    it("detects text message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { conversation: "Hello" },
-      };
-      expect(detectMediaType(data)).toBe("text");
-    });
-
-    it("detects image message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { imageMessage: { url: "http://..." } },
-      };
-      expect(detectMediaType(data)).toBe("image");
-    });
-
-    it("detects audio message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { audioMessage: { url: "http://..." } },
-      };
-      expect(detectMediaType(data)).toBe("audio");
-    });
-
-    it("detects video message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { videoMessage: { url: "http://..." } },
-      };
-      expect(detectMediaType(data)).toBe("video");
-    });
-
-    it("detects document message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-        message: { documentMessage: { fileName: "doc.pdf", url: "http://..." } },
-      };
-      expect(detectMediaType(data)).toBe("document");
-    });
-
-    it("returns null for no message", () => {
-      const data: MessagesUpsertData = {
-        key: { remoteJid: "test@s.whatsapp.net", fromMe: false, id: "1" },
-      };
-      expect(detectMediaType(data)).toBeNull();
     });
   });
 });

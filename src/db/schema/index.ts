@@ -16,3 +16,4 @@ export { aiProviders } from "./ai-providers";
 export { scoringRules } from "./scoring-rules";
 export { extractionJobs } from "./extraction-jobs";
 export { auditLogs } from "./audit-logs";
+export { notifications } from "./notifications";

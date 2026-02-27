@@ -11,10 +11,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
-import { campaignLeads } from "@/db/schema/campaign-leads";
-import { campaigns } from "@/db/schema/campaigns";
 import { leads } from "@/db/schema/leads";
-import { messages } from "@/db/schema/messages";
 import { normalizePhone, safeJsonParse } from "@/lib/helpers";
 
 export type LeadFilters = {
@@ -25,9 +22,8 @@ export type LeadFilters = {
   scoreMin?: number;
   scoreMax?: number;
   hasWebsite?: boolean;
-  campaignId?: string;
   aiClassification?: string[];
-  sortBy?: "score" | "name" | "lastContactedAt" | "createdAt";
+  sortBy?: "score" | "name" | "createdAt";
   sortOrder?: "asc" | "desc";
   page?: number;
   pageSize?: number;
@@ -77,15 +73,6 @@ function buildLeadWhere(organizationId: string, filters: LeadFilters) {
     }
   }
 
-  if (filters.campaignId) {
-    const subquery = db
-      .select({ leadId: campaignLeads.leadId })
-      .from(campaignLeads)
-      .where(eq(campaignLeads.campaignId, filters.campaignId));
-
-    clauses.push(inArray(leads.id, subquery));
-  }
-
   return and(...clauses);
 }
 
@@ -98,8 +85,6 @@ function buildLeadOrder(filters: LeadFilters) {
   switch (sortBy) {
     case "name":
       return [sort(leads.name)];
-    case "lastContactedAt":
-      return [sort(leads.lastContactedAt), desc(leads.score)];
     case "createdAt":
       return [sort(leads.createdAt)];
     case "score":
@@ -143,33 +128,8 @@ export async function getLead(id: string) {
 
   if (!lead) return null;
 
-  const campaignRows = await db
-    .select({
-      campaignLeadId: campaignLeads.id,
-      campaignId: campaigns.id,
-      campaignName: campaigns.name,
-      campaignStatus: campaigns.status,
-      pipelineStage: campaignLeads.pipelineStage,
-      leadStatus: campaignLeads.status,
-      campaignScore: campaignLeads.campaignScore,
-      needsHumanReview: campaignLeads.needsHumanReview,
-    })
-    .from(campaignLeads)
-    .innerJoin(campaigns, eq(campaigns.id, campaignLeads.campaignId))
-    .where(eq(campaignLeads.leadId, id))
-    .orderBy(desc(campaignLeads.createdAt));
-
-  const recentMessages = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.leadId, id))
-    .orderBy(desc(messages.createdAt))
-    .limit(20);
-
   return {
     ...lead,
-    campaignRows,
-    recentMessages,
     parsedScoreBreakdown: safeJsonParse<Record<string, number>>(
       typeof lead.scoreBreakdown === "string" ? lead.scoreBreakdown : null,
       {}
@@ -224,7 +184,6 @@ export async function updateLead(
 }
 
 export async function deleteLead(id: string) {
-  // MVP soft-delete to preserve message and campaign history.
   const [updated] = await db
     .update(leads)
     .set({
@@ -233,100 +192,6 @@ export async function deleteLead(id: string) {
       updatedAt: new Date(),
     })
     .where(eq(leads.id, id))
-    .returning();
-
-  return updated;
-}
-
-export async function bulkAddToCampaign(
-  leadIds: string[],
-  campaignId: string,
-  organizationId: string
-) {
-  if (!leadIds.length) return { inserted: 0 };
-
-  const payload = leadIds.map((leadId) => ({
-    campaignId,
-    leadId,
-    organizationId,
-    campaignScore: 0,
-    status: "pending" as const,
-    pipelineStage: "new" as const,
-  }));
-
-  await db
-    .insert(campaignLeads)
-    .values(payload)
-    .onConflictDoNothing({
-      target: [campaignLeads.campaignId, campaignLeads.leadId],
-    });
-
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(campaignLeads)
-    .where(
-      and(
-        eq(campaignLeads.campaignId, campaignId),
-        inArray(campaignLeads.leadId, leadIds)
-      )
-    );
-
-  return {
-    inserted: count,
-  };
-}
-
-export async function getLeadBoard(
-  organizationId: string,
-  campaignId: string,
-  filters?: { minScore?: number; maxScore?: number }
-) {
-  const clauses = [
-    eq(campaignLeads.organizationId, organizationId),
-    eq(campaignLeads.campaignId, campaignId),
-  ];
-
-  if (typeof filters?.minScore === "number") {
-    clauses.push(gte(campaignLeads.campaignScore, filters.minScore));
-  }
-
-  if (typeof filters?.maxScore === "number") {
-    clauses.push(lte(campaignLeads.campaignScore, filters.maxScore));
-  }
-
-  const rows = await db
-    .select({
-      campaignLeadId: campaignLeads.id,
-      pipelineStage: campaignLeads.pipelineStage,
-      status: campaignLeads.status,
-      campaignScore: campaignLeads.campaignScore,
-      contactedAt: campaignLeads.contactedAt,
-      leadId: leads.id,
-      leadName: leads.name,
-      leadCategory: leads.category,
-      leadCity: leads.city,
-      leadScore: leads.score,
-      leadUpdatedAt: leads.updatedAt,
-    })
-    .from(campaignLeads)
-    .innerJoin(leads, eq(leads.id, campaignLeads.leadId))
-    .where(and(...clauses))
-    .orderBy(desc(campaignLeads.campaignScore), desc(campaignLeads.updatedAt));
-
-  return rows;
-}
-
-export async function updateCampaignLeadStage(
-  campaignLeadId: string,
-  pipelineStage: (typeof campaignLeads.$inferInsert)["pipelineStage"]
-) {
-  const [updated] = await db
-    .update(campaignLeads)
-    .set({
-      pipelineStage,
-      updatedAt: new Date(),
-    })
-    .where(eq(campaignLeads.id, campaignLeadId))
     .returning();
 
   return updated;
