@@ -1,13 +1,45 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
-export const connection = new IORedis(process.env.REDIS_URL!, {
-  maxRetriesPerRequest: null,
-});
+let redisConnection: IORedis | null = null;
+const queueCache = new Map<string, Queue>();
 
-export const extractionQueue = new Queue("extraction", { connection });
-export const enrichmentQueue = new Queue("enrichment", { connection });
-export const cadenceQueue = new Queue("cadence", { connection });
-export const aiReplyQueue = new Queue("ai-reply", { connection });
-export const messageSendQueue = new Queue("message-send", { connection });
-export const schedulerQueue = new Queue("scheduler", { connection });
+function getRedisConnection() {
+  if (redisConnection) return redisConnection;
+
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) throw new Error("REDIS_URL is not configured.");
+
+  redisConnection = new IORedis(redisUrl, {
+    maxRetriesPerRequest: null,
+    lazyConnect: true,
+    enableReadyCheck: false,
+  });
+
+  return redisConnection;
+}
+
+function getQueue(name: string) {
+  const existing = queueCache.get(name);
+  if (existing) return existing;
+
+  const queue = new Queue(name, { connection: getRedisConnection() });
+  queueCache.set(name, queue);
+  return queue;
+}
+
+function createLazyQueue(name: string) {
+  return new Proxy({} as Queue, {
+    get(_target, property, receiver) {
+      const queue = getQueue(name) as unknown as Record<PropertyKey, unknown>;
+      const value = Reflect.get(queue, property, receiver);
+      if (typeof value === "function") {
+        return (value as (...args: unknown[]) => unknown).bind(queue);
+      }
+      return value;
+    },
+  });
+}
+
+export const extractionQueue = createLazyQueue("extraction");
+export const enrichmentQueue = createLazyQueue("enrichment");
