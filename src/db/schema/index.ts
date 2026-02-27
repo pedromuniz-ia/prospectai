@@ -17,3 +17,4 @@ export { scoringRules } from "./scoring-rules";
 export { extractionJobs } from "./extraction-jobs";
 export { auditLogs } from "./audit-logs";
 export { notifications } from "./notifications";
+export { apiKeys } from "./api-keys";
