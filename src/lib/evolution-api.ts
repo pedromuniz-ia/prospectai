@@ -18,10 +18,8 @@ export const createInstanceInputSchema = z.object({
       byEvents: z.boolean().default(true),
       base64: z.boolean().default(true),
       events: z.array(z.string()).default([
-        "MESSAGES_UPSERT",
         "QRCODE_UPDATED",
         "CONNECTION_UPDATE",
-        "MESSAGES_UPDATE",
       ]),
     })
     .optional(),
@@ -46,24 +44,6 @@ export interface CreateInstanceResponse {
   settings: Record<string, unknown>;
 }
 
-export interface SendTextInput {
-  number: string;
-  text: string;
-  delay?: number;
-  linkPreview?: boolean;
-}
-
-export interface SendTextResponse {
-  key: {
-    remoteJid: string;
-    fromMe: boolean;
-    id: string;
-  };
-  message: Record<string, unknown>;
-  messageTimestamp: string;
-  status: string;
-}
-
 export interface ConnectionState {
   instance: {
     instanceName: string;
@@ -86,59 +66,6 @@ export interface EvolutionInstance {
   number?: string;
   status?: string;
   qrcode?: boolean;
-}
-
-export interface SetPresenceInput {
-  presence: "available" | "unavailable" | "composing" | "recording" | "paused";
-}
-
-// ── Webhook Event Types ──
-
-export interface WebhookEvent {
-  event: string;
-  instance: string;
-  data: unknown;
-  apikey?: string;
-}
-
-export interface MessagesUpsertData {
-  key: {
-    remoteJid: string;
-    fromMe: boolean;
-    id: string;
-  };
-  pushName?: string;
-  message?: {
-    conversation?: string;
-    extendedTextMessage?: { text: string };
-    imageMessage?: { caption?: string; url?: string };
-    audioMessage?: { url?: string };
-    videoMessage?: { caption?: string; url?: string };
-    documentMessage?: { fileName?: string; url?: string };
-  };
-  messageTimestamp?: number;
-  messageType?: string;
-}
-
-export interface ConnectionUpdateData {
-  state: "open" | "close" | "connecting";
-  statusReason?: number;
-}
-
-export interface QRCodeUpdateData {
-  code: string;
-  base64: string;
-}
-
-export interface MessagesUpdateData {
-  key: {
-    remoteJid: string;
-    fromMe: boolean;
-    id: string;
-  };
-  update: {
-    status?: number; // 2 = sent, 3 = delivered, 4 = read
-  };
 }
 
 // ── Error ──
@@ -199,7 +126,6 @@ export class EvolutionAPI {
     return res.json() as Promise<T>;
   }
 
-  // POST /instance/create
   async createInstance(
     input: CreateInstanceInput
   ): Promise<CreateInstanceResponse> {
@@ -211,7 +137,6 @@ export class EvolutionAPI {
     );
   }
 
-  // GET /instance/connectionState/{instance}
   async getConnectionState(instanceName: string): Promise<ConnectionState> {
     return this.request<ConnectionState>(
       "GET",
@@ -219,19 +144,6 @@ export class EvolutionAPI {
     );
   }
 
-  // POST /message/sendText/{instance}
-  async sendText(
-    instanceName: string,
-    input: SendTextInput
-  ): Promise<SendTextResponse> {
-    return this.request<SendTextResponse>(
-      "POST",
-      `/message/sendText/${encodeURIComponent(instanceName)}`,
-      input
-    );
-  }
-
-  // POST /webhook/set/{instance}
   async setWebhook(
     instanceName: string,
     config: WebhookConfig
@@ -243,7 +155,6 @@ export class EvolutionAPI {
     );
   }
 
-  // GET /instance/fetchInstances
   async fetchInstances(): Promise<EvolutionInstance[]> {
     return this.request<EvolutionInstance[]>(
       "GET",
@@ -251,7 +162,6 @@ export class EvolutionAPI {
     );
   }
 
-  // DELETE /instance/logout/{instance}
   async logoutInstance(instanceName: string): Promise<void> {
     await this.request<unknown>(
       "DELETE",
@@ -259,23 +169,10 @@ export class EvolutionAPI {
     );
   }
 
-  // DELETE /instance/delete/{instance}
   async deleteInstance(instanceName: string): Promise<void> {
     await this.request<unknown>(
       "DELETE",
       `/instance/delete/${encodeURIComponent(instanceName)}`
-    );
-  }
-
-  // POST /instance/setPresence/{instance}
-  async setPresence(
-    instanceName: string,
-    input: SetPresenceInput
-  ): Promise<void> {
-    await this.request<unknown>(
-      "POST",
-      `/instance/setPresence/${encodeURIComponent(instanceName)}`,
-      input
     );
   }
 }
@@ -303,31 +200,4 @@ export function getEvolutionAPI(): EvolutionAPI {
 /** Extract phone number from WhatsApp JID (e.g., "5511999999999@s.whatsapp.net" → "5511999999999") */
 export function phoneFromJid(jid: string): string {
   return jid.split("@")[0];
-}
-
-/** Extract text content from a webhook message */
-export function extractMessageText(data: MessagesUpsertData): string | null {
-  const msg = data.message;
-  if (!msg) return null;
-  return (
-    msg.conversation ??
-    msg.extendedTextMessage?.text ??
-    msg.imageMessage?.caption ??
-    msg.videoMessage?.caption ??
-    null
-  );
-}
-
-/** Detect media type from webhook message */
-export function detectMediaType(
-  data: MessagesUpsertData
-): "text" | "image" | "audio" | "video" | "document" | null {
-  const msg = data.message;
-  if (!msg) return null;
-  if (msg.imageMessage) return "image";
-  if (msg.audioMessage) return "audio";
-  if (msg.videoMessage) return "video";
-  if (msg.documentMessage) return "document";
-  if (msg.conversation || msg.extendedTextMessage) return "text";
-  return null;
 }
