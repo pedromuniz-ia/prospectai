@@ -14,7 +14,6 @@ import {
 
 const settingsTabs = [
   { href: "/settings/general", label: "Conta", icon: Building2 },
-  { href: "/settings/whatsapp", label: "WhatsApp", icon: Smartphone },
   { href: "/settings/ai", label: "IA & Modelos", icon: Brain },
   { href: "/settings/scoring", label: "Lead Scoring", icon: Target },
   { href: "/settings/integrations", label: "Integrações", icon: Plug },

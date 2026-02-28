@@ -10,7 +10,6 @@ export {
 } from "./auth";
 
 // App tables
-export { whatsappInstances } from "./whatsapp-instances";
 export { leads } from "./leads";
 export { aiProviders } from "./ai-providers";
 export { scoringRules } from "./scoring-rules";

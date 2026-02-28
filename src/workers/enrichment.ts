@@ -14,7 +14,6 @@ import { checkWhatsapp } from "@/lib/enrichment/whatsapp-check";
 import { checkInstagram } from "@/lib/enrichment/instagram-check";
 import { enrichWithCNPJ } from "@/lib/enrichment/cnpj-check";
 import { enrichWithLinkedin } from "@/lib/enrichment/linkedin-check";
-import { whatsappInstances } from "@/db/schema/whatsapp-instances";
 import { extractDomain, isActualWebsite, sleep } from "@/lib/helpers";
 import { getModel } from "@/lib/ai/provider-registry";
 
@@ -109,25 +108,14 @@ export async function processEnrichment(job: Job<EnrichmentJobData>) {
   // WhatsApp check
   if (data.type === "full" && lead.phone) {
     console.log(`[enrichment] Checking WhatsApp for ${lead.phone}`);
-    const instance = await db.query.whatsappInstances.findFirst({
-      where: and(
-        eq(whatsappInstances.organizationId, data.organizationId),
-        eq(whatsappInstances.status, "connected")
-      ),
-    });
-
-    if (instance) {
-      await sleep(1_000);
-      const wa = await checkWhatsapp(lead.phone, instance.instanceName);
-      console.log(`[enrichment] WhatsApp result for ${lead.phone}: ${wa.hasWhatsapp}`);
-      patch.hasWhatsapp = wa.hasWhatsapp;
-      patch.whatsappIsBusinessAccount = wa.isBusinessAccount;
-      patch.whatsappBusinessDescription = wa.businessDescription;
-      patch.whatsappBusinessEmail = wa.businessEmail;
-      patch.whatsappBusinessWebsite = wa.businessWebsite;
-    } else {
-      console.log(`[enrichment] No connected WhatsApp instance for org ${data.organizationId}`);
-    }
+    await sleep(1_000);
+    const wa = await checkWhatsapp(lead.phone);
+    console.log(`[enrichment] WhatsApp result for ${lead.phone}: ${wa.hasWhatsapp}`);
+    patch.hasWhatsapp = wa.hasWhatsapp;
+    patch.whatsappIsBusinessAccount = wa.isBusinessAccount;
+    patch.whatsappBusinessDescription = wa.businessDescription;
+    patch.whatsappBusinessEmail = wa.businessEmail;
+    patch.whatsappBusinessWebsite = wa.businessWebsite;
   }
 
   // Instagram check

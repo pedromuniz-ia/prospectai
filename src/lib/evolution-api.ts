@@ -126,56 +126,6 @@ export class EvolutionAPI {
     return res.json() as Promise<T>;
   }
 
-  async createInstance(
-    input: CreateInstanceInput
-  ): Promise<CreateInstanceResponse> {
-    const parsed = createInstanceInputSchema.parse(input);
-    return this.request<CreateInstanceResponse>(
-      "POST",
-      "/instance/create",
-      parsed
-    );
-  }
-
-  async getConnectionState(instanceName: string): Promise<ConnectionState> {
-    return this.request<ConnectionState>(
-      "GET",
-      `/instance/connectionState/${encodeURIComponent(instanceName)}`
-    );
-  }
-
-  async setWebhook(
-    instanceName: string,
-    config: WebhookConfig
-  ): Promise<void> {
-    await this.request<unknown>(
-      "POST",
-      `/webhook/set/${encodeURIComponent(instanceName)}`,
-      config
-    );
-  }
-
-  async fetchInstances(): Promise<EvolutionInstance[]> {
-    return this.request<EvolutionInstance[]>(
-      "GET",
-      "/instance/fetchInstances"
-    );
-  }
-
-  async logoutInstance(instanceName: string): Promise<void> {
-    await this.request<unknown>(
-      "DELETE",
-      `/instance/logout/${encodeURIComponent(instanceName)}`
-    );
-  }
-
-  async deleteInstance(instanceName: string): Promise<void> {
-    await this.request<unknown>(
-      "DELETE",
-      `/instance/delete/${encodeURIComponent(instanceName)}`
-    );
-  }
-
   async checkWhatsappNumbers(
     instanceName: string,
     numbers: string[]

@@ -19,11 +19,16 @@ const emptyResult: WhatsappCheckResult = {
 };
 
 export async function checkWhatsapp(
-  phone: string,
-  instanceName: string
+  phone: string
 ): Promise<WhatsappCheckResult> {
   try {
     const api = getEvolutionAPI();
+    const instanceName = process.env.EVOLUTION_GLOBAL_INSTANCE;
+
+    if (!instanceName) {
+      console.warn("[WhatsApp Check] Warning: EVOLUTION_GLOBAL_INSTANCE logic not configured. Skipping WhatsApp enrichment.");
+      return emptyResult;
+    }
 
     const [check] = await api.checkWhatsappNumbers(instanceName, [phone]);
     if (!check?.exists) return emptyResult;
