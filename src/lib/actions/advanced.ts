@@ -6,18 +6,15 @@ import { aiProviders } from "@/db/schema/ai-providers";
 import { extractionJobs } from "@/db/schema/extraction-jobs";
 import { leads } from "@/db/schema/leads";
 import { scoringRules } from "@/db/schema/scoring-rules";
-import { whatsappInstances } from "@/db/schema/whatsapp-instances";
 
 export async function exportOrganizationData(organizationId: string) {
   const [
     leadRows,
-    instanceRows,
     aiRows,
     scoringRows,
     extractionRows,
   ] = await Promise.all([
     db.query.leads.findMany({ where: eq(leads.organizationId, organizationId) }),
-    db.query.whatsappInstances.findMany({ where: eq(whatsappInstances.organizationId, organizationId) }),
     db.query.aiProviders.findMany({ where: eq(aiProviders.organizationId, organizationId) }),
     db.query.scoringRules.findMany({ where: eq(scoringRules.organizationId, organizationId) }),
     db.query.extractionJobs.findMany({ where: eq(extractionJobs.organizationId, organizationId) }),
@@ -27,7 +24,6 @@ export async function exportOrganizationData(organizationId: string) {
     exportedAt: new Date().toISOString(),
     organizationId,
     leads: leadRows,
-    whatsappInstances: instanceRows,
     aiProviders: aiRows,
     scoringRules: scoringRows,
     extractionJobs: extractionRows,

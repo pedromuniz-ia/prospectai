@@ -1,5 +1,4 @@
 import { Sidebar, MobileSidebar } from "@/components/sidebar";
-import { StatusBar } from "@/components/status-bar";
 import { UserNav } from "@/components/user-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
@@ -31,7 +30,6 @@ export default function DashboardLayout({
               <UserNav />
             </div>
           </header>
-          <StatusBar />
           <main id="main-content" className="flex-1 overflow-auto">{children}</main>
           <CommandPalette />
         </div>
