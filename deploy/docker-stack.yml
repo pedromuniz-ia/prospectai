@@ -1,7 +1,7 @@
 version: "3.9"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ProspectAI — Portainer Stack (cola no editor e preenche os valores)
+# ProspectAI — Portainer Stack (v2 — Mais Robusta)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #
 # Deploy:
@@ -24,7 +24,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - TURSO_CONNECTION_URL=file:/data/prospectai.db
-      - REDIS_URL=redis://prospectai_redis:6379
+      - REDIS_URL=redis://redis:6379
       - BETTER_AUTH_SECRET=TROCAR_AQUI
       - BETTER_AUTH_URL=https://TROCAR_AQUI.com
       - NEXT_PUBLIC_APP_URL=https://TROCAR_AQUI.com
@@ -40,17 +40,17 @@ services:
       - swarm_public
     deploy:
       replicas: 1
+      resources:
+        limits:
+          memory: 512M
       update_config:
         parallelism: 1
         delay: 10s
         failure_action: rollback
         order: start-first
-      rollback_config:
-        parallelism: 1
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
-        max_attempts: 3
 
   worker:
     image: ghcr.io/pedromuniz-ia/prospectai:latest
@@ -58,29 +58,29 @@ services:
     environment:
       - NODE_ENV=production
       - TURSO_CONNECTION_URL=file:/data/prospectai.db
-      - REDIS_URL=redis://prospectai_redis:6379
+      - REDIS_URL=redis://redis:6379
       - APIFY_TOKEN=TROCAR_AQUI
       - EVOLUTION_API_URL=http://TROCAR_AQUI:8080
       - EVOLUTION_API_KEY=TROCAR_AQUI
       - ANTHROPIC_API_KEY=TROCAR_AQUI
       - OPENAI_API_KEY=
       - GOOGLE_GENERATIVE_AI_API_KEY=
-    healthcheck:
-      disable: true
     volumes:
       - prospectai-data:/data
     networks:
       - swarm_public
     deploy:
       replicas: 1
+      resources:
+        limits:
+          memory: 1G
       update_config:
         parallelism: 1
         delay: 10s
         failure_action: rollback
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
-        max_attempts: 3
 
   redis:
     image: redis:7-alpine
@@ -92,7 +92,7 @@ services:
     deploy:
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
 
 volumes:
   prospectai-data:

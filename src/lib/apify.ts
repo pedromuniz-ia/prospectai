@@ -70,8 +70,11 @@ function mapItem(item: RawApifyItem): ExtractedLead | null {
 
 function getClient() {
   const token = process.env.APIFY_TOKEN;
-  if (!token) {
-    throw new Error("Missing APIFY_TOKEN environment variable");
+
+  if (!token || token === "TROCAR_AQUI") {
+    throw new Error(
+      "❌ [Apify] APIFY_TOKEN is missing or set to placeholder. Please configure it in your environment variables."
+    );
   }
 
   return new ApifyClient({ token });
