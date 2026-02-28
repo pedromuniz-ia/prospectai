@@ -23,7 +23,8 @@ function getQueue(name: string) {
   const existing = queueCache.get(name);
   if (existing) return existing;
 
-  const queue = new Queue(name, { connection: getRedisConnection() });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ioredis version mismatch between bullmq's bundled copy and top-level
+  const queue = new Queue(name, { connection: getRedisConnection() as any });
   queueCache.set(name, queue);
   return queue;
 }
