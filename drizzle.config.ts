@@ -1,7 +1,11 @@
 import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
 
-config({ path: ".env.local" });
+// In production (Docker), env vars come from the container — no dotenv file needed.
+// In dev, load from .env.local as usual.
+if (process.env.NODE_ENV !== "production") {
+  config({ path: ".env.local" });
+}
 
 const dbCredentials: { url: string; authToken?: string } = {
   url: process.env.TURSO_CONNECTION_URL!,
