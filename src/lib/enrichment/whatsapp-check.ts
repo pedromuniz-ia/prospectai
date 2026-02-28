@@ -48,7 +48,12 @@ export async function checkWhatsapp(
         businessCategory: null,
       };
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`[WhatsApp Check Error for ${phone}]:`, error.message, error.stack);
+    } else {
+      console.error(`[WhatsApp Check Error for ${phone}]:`, error);
+    }
     return emptyResult;
   }
 }

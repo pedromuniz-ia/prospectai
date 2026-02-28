@@ -19,7 +19,7 @@ export async function enrichWithLinkedin(linkedinUrl: string): Promise<LinkedinE
     try {
         const client = new ApifyClient({ token });
 
-        const run = await client.actor("apify/linkedin-company-scraper").call({
+        const run = await client.actor("curious_coder/linkedin-company-scraper").call({
             urls: [linkedinUrl],
             limit: 1
         });
