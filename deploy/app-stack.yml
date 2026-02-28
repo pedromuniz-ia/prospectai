@@ -8,9 +8,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - TURSO_CONNECTION_URL=file:/data/prospectai.db
       - REDIS_URL=${REDIS_URL}
-      - TURSO_CONNECTION_URL=${TURSO_CONNECTION_URL}
-      - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
       - APIFY_TOKEN=${APIFY_TOKEN}
@@ -20,6 +19,8 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+    volumes:
+      - /opt/prospectai/data:/data
     networks:
       - swarm_public
     deploy:

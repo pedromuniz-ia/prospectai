@@ -6,15 +6,16 @@ services:
     command: npm run worker:prod
     environment:
       - NODE_ENV=production
+      - TURSO_CONNECTION_URL=file:/data/prospectai.db
       - REDIS_URL=${REDIS_URL}
-      - TURSO_CONNECTION_URL=${TURSO_CONNECTION_URL}
-      - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
       - APIFY_TOKEN=${APIFY_TOKEN}
       - EVOLUTION_API_URL=${EVOLUTION_API_URL}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+    volumes:
+      - /opt/prospectai/data:/data
     networks:
       - swarm_public
     deploy:
