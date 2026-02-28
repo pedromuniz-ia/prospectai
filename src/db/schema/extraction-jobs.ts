@@ -33,3 +33,19 @@ export const extractionJobs = sqliteTable("extraction_jobs", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const extractionLogs = sqliteTable("extraction_logs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  jobId: text("job_id")
+    .notNull()
+    .references(() => extractionJobs.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  type: text("type", { enum: ["info", "success", "error", "warning"] })
+    .notNull()
+    .default("info"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});

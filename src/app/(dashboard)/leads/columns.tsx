@@ -33,8 +33,20 @@ export function WhatsappBadge({
   hasWhatsapp: boolean | null;
   isBusiness: boolean | null;
 }) {
-  if (!hasWhatsapp) {
+  if (hasWhatsapp == null) {
     return <span className="text-muted-foreground/40 text-xs">—</span>;
+  }
+  if (!hasWhatsapp) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">
+            Sem WA
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Verificado — sem WhatsApp</TooltipContent>
+      </Tooltip>
+    );
   }
   return (
     <Tooltip>
@@ -60,13 +72,43 @@ export function WhatsappBadge({
 export function InstagramBadge({
   hasInstagram,
   followers,
+  username,
 }: {
   hasInstagram: boolean | null;
   followers: number | null;
+  username: string | null;
 }) {
-  if (!hasInstagram) {
+  if (hasInstagram == null) {
     return <span className="text-muted-foreground/40 text-xs">—</span>;
   }
+  if (!hasInstagram) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">
+            Sem IG
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Verificado — sem Instagram</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  if (username) {
+    return (
+      <a
+        href={`https://instagram.com/${username}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 hover:text-pink-300 transition-colors"
+      >
+        <span className="rounded bg-pink-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-pink-400">
+          @{username}
+        </span>
+      </a>
+    );
+  }
+
   const formatted =
     followers != null
       ? followers >= 1000

@@ -64,6 +64,20 @@ export const leads = sqliteTable(
     domainCreatedAt: text("domain_created_at"),
     whoisEmail: text("whois_email"),
     whoisResponsible: text("whois_responsible"),
+
+    // CNPJ & Receita data
+    cnpj: text("cnpj"),
+    legalName: text("legal_name"),
+    foundingDate: text("founding_date"),
+    capitalSocial: real("capital_social"),
+    primaryCnae: text("primary_cnae"),
+    partners: text("partners", { mode: "json" }),
+
+    // LinkedIn data
+    hasLinkedin: integer("has_linkedin", { mode: "boolean" }),
+    linkedinUrl: text("linkedin_url"),
+    employeeCountRange: text("employee_count_range"),
+
     enrichedAt: integer("enriched_at", { mode: "timestamp" }),
     enrichmentVersion: integer("enrichment_version").notNull().default(0),
 

@@ -1,13 +1,9 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Filter,
-  Globe,
-  MapPin,
-  Phone,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -18,11 +14,11 @@ import {
   getFilterOptions,
   getLead,
   getLeads,
+  reenrichLead,
   type LeadFilters,
 } from "@/lib/actions/leads";
 import { LeadsDataTable } from "@/app/(dashboard)/leads/data-table";
-import { ScoreBadge } from "@/app/(dashboard)/leads/columns";
-import { StatusBadge } from "@/components/ds";
+import { LeadDetailModal } from "@/app/(dashboard)/leads/lead-detail-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,13 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { entries } from "@/lib/i18n";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -70,12 +59,13 @@ function LeadsPageContent() {
   const [filterOptions, setFilterOptions] = useState<{ categories: string[]; cities: string[] }>({ categories: [], cities: [] });
 
   const page = Number(searchParams.get("page") ?? "1");
+  const pageSize = Number(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE));
   const leadId = searchParams.get("leadId");
 
   const filters = useMemo<LeadFilters>(
     () => ({
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: searchParams.get("search") ?? undefined,
       sortBy: (searchParams.get("sortBy") as LeadFilters["sortBy"]) ?? "score",
       sortOrder:
@@ -103,11 +93,13 @@ function LeadsPageContent() {
     [page, searchParams]
   );
 
-  const setParam = useCallback(
-    (key: string, value?: string | null) => {
+  const setParams = useCallback(
+    (params: Record<string, string | null | undefined>) => {
       const next = new URLSearchParams(searchParams.toString());
-      if (!value) next.delete(key);
-      else next.set(key, value);
+      Object.entries(params).forEach(([key, value]) => {
+        if (!value) next.delete(key);
+        else next.set(key, value);
+      });
       router.replace(`${pathname}?${next.toString()}`);
     },
     [pathname, router, searchParams]
@@ -154,7 +146,7 @@ function LeadsPageContent() {
     loadLeadDetails();
   }, [loadLeadDetails]);
 
-  const totalPages = Math.max(1, Math.ceil(count / DEFAULT_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
   const categoryOptions = filterOptions.categories;
   const cityOptions = filterOptions.cities;
@@ -186,7 +178,9 @@ function LeadsPageContent() {
                 <Input
                   className="pl-8"
                   value={filters.search ?? ""}
-                  onChange={(event) => setParam("search", event.target.value || null)}
+                  onChange={(event) =>
+                    setParams({ search: event.target.value || null })
+                  }
                   placeholder="Nome, telefone..."
                 />
               </div>
@@ -199,7 +193,7 @@ function LeadsPageContent() {
               <Select
                 value={filters.category?.[0] ?? "all"}
                 onValueChange={(value) =>
-                  setParam("category", value === "all" ? null : value)
+                  setParams({ category: value === "all" ? null : value })
                 }
               >
                 <SelectTrigger>
@@ -223,7 +217,7 @@ function LeadsPageContent() {
               <Select
                 value={filters.city?.[0] ?? "all"}
                 onValueChange={(value) =>
-                  setParam("city", value === "all" ? null : value)
+                  setParams({ city: value === "all" ? null : value })
                 }
               >
                 <SelectTrigger>
@@ -249,7 +243,7 @@ function LeadsPageContent() {
               <Select
                 value={filters.status?.[0] ?? "all"}
                 onValueChange={(value) =>
-                  setParam("status", value === "all" ? null : value)
+                  setParams({ status: value === "all" ? null : value })
                 }
               >
                 <SelectTrigger>
@@ -274,7 +268,7 @@ function LeadsPageContent() {
                 type="number"
                 value={filters.scoreMin ?? ""}
                 onChange={(event) =>
-                  setParam("scoreMin", event.target.value || null)
+                  setParams({ scoreMin: event.target.value || null })
                 }
                 placeholder="0"
               />
@@ -288,7 +282,7 @@ function LeadsPageContent() {
                 type="number"
                 value={filters.scoreMax ?? ""}
                 onChange={(event) =>
-                  setParam("scoreMax", event.target.value || null)
+                  setParams({ scoreMax: event.target.value || null })
                 }
                 placeholder="100"
               />
@@ -327,20 +321,54 @@ function LeadsPageContent() {
               if (checked) setSelected(rows.map((row) => row.id));
               else setSelected([]);
             }}
-            onOpenLead={(nextLeadId) => setParam("leadId", nextLeadId)}
+            onOpenLead={(nextLeadId) => setParams({ leadId: nextLeadId })}
+            onReenrich={async (ids) => {
+              if (ids.length === 0) return;
+              // Assuming all leads on this page belong to the same organization
+              // We can get organizationId from any lead in the rows
+              const organizationId = rows[0]?.organizationId;
+              if (!organizationId) return;
+
+              await Promise.all(ids.map(id => reenrichLead(id, organizationId)));
+            }}
+            onRefresh={async () => {
+              await loadLeads();
+            }}
           />
         )}
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Mostrando {(page - 1) * DEFAULT_PAGE_SIZE + 1} - {Math.min(page * DEFAULT_PAGE_SIZE, count)} de {count}
-          </span>
+          <div className="flex items-center gap-4">
+            <span>
+              Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, count)} de {count}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wider opacity-60">Leads por página:</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(val) => {
+                  setParams({ pageSize: val, page: "1" });
+                }}
+              >
+                <SelectTrigger className="h-7 w-[70px] bg-transparent text-xs border-border/40">
+                  <SelectValue placeholder={String(pageSize)} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               disabled={page <= 1}
-              onClick={() => setParam("page", String(page - 1))}
+              onClick={() => setParams({ page: String(page - 1) })}
             >
               Anterior
             </Button>
@@ -348,7 +376,7 @@ function LeadsPageContent() {
               variant="outline"
               size="sm"
               disabled={page >= totalPages}
-              onClick={() => setParam("page", String(page + 1))}
+              onClick={() => setParams({ page: String(page + 1) })}
             >
               Próxima
             </Button>
@@ -356,110 +384,16 @@ function LeadsPageContent() {
         </div>
       </div>
 
-      <Sheet
+      <LeadDetailModal
+        lead={leadDetails}
         open={Boolean(leadId)}
         onOpenChange={(open) => {
-          if (!open) setParam("leadId", null);
+          if (!open) setParams({ leadId: null });
         }}
-      >
-        <SheetContent className="w-full max-w-2xl overflow-y-auto">
-          {leadDetails ? (
-            <>
-              <SheetHeader>
-                <SheetTitle className="font-display text-2xl">{leadDetails.name}</SheetTitle>
-                <SheetDescription>
-                  {leadDetails.category ?? "Categoria não informada"} · {leadDetails.city ?? "Cidade não informada"}
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="space-y-6 p-4 pt-0">
-                <section className="grid gap-3 rounded-xl border border-border/70 bg-card/50 p-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Score</p>
-                    <div className="mt-2">
-                      <ScoreBadge score={leadDetails.score} />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Status</p>
-                    <div className="mt-2">
-                      <StatusBadge domain="leadStatus" value={leadDetails.status} />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Telefone</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm">
-                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                      {leadDetails.phone ? (
-                        <a href={`tel:${leadDetails.phone}`} className="hover:text-primary transition-colors">
-                          {leadDetails.phone}
-                        </a>
-                      ) : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Website</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm">
-                      <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                      {leadDetails.website ? (
-                        <a
-                          href={leadDetails.website.startsWith("http") ? leadDetails.website : `https://${leadDetails.website}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="truncate hover:text-primary transition-colors"
-                        >
-                          {leadDetails.website}
-                        </a>
-                      ) : "—"}
-                    </p>
-                  </div>
-                  {leadDetails.city && (
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Cidade</p>
-                      <p className="mt-1 flex items-center gap-1.5 text-sm">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                        <Link href={`/leads?city=${encodeURIComponent(leadDetails.city)}`} className="hover:text-primary transition-colors">
-                          {leadDetails.city}
-                        </Link>
-                      </p>
-                    </div>
-                  )}
-                </section>
-
-                <section className="rounded-xl border border-border/70 bg-card/50 p-4">
-                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Detalhamento da pontuação</p>
-                  <div className="mt-3 space-y-2">
-                    {(() => {
-                      const breakdown = leadDetails.parsedScoreBreakdown;
-                      const totalScore = Object.values(breakdown).reduce((sum, v) => sum + Math.abs(v), 0);
-                      const maxScore = Math.max(totalScore, 100);
-                      return Object.entries(breakdown).map(([label, points]) => (
-                        <div key={label}>
-                          <div className="mb-1 flex items-center justify-between text-xs">
-                            <span>{label}</span>
-                            <span className="font-mono">{points >= 0 ? `+${points}` : points}</span>
-                          </div>
-                          <div className="bg-muted h-2 rounded-full">
-                            <div
-                              className="bg-primary h-2 rounded-full"
-                              style={{ width: `${Math.min((Math.abs(points) / maxScore) * 100, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                    {Object.keys(leadDetails.parsedScoreBreakdown).length === 0 && (
-                      <p className="text-xs text-muted-foreground">Sem breakdown disponível.</p>
-                    )}
-                  </div>
-                </section>
-              </div>
-            </>
-          ) : (
-            <div className="p-6 text-sm text-muted-foreground">Carregando detalhes...</div>
-          )}
-        </SheetContent>
-      </Sheet>
+        onRefresh={async () => {
+          await Promise.all([loadLeads(), loadLeadDetails()]);
+        }}
+      />
     </div>
   );
 }

@@ -52,6 +52,7 @@ export async function enrichWithRDAP(domainInput: string): Promise<RDAPEnrichmen
   const contactEntity =
     entities.find((entity) => entity.roles?.includes("registrant")) ??
     entities.find((entity) => entity.roles?.includes("administrative")) ??
+    entities.find((entity) => entity.roles?.includes("billing")) ??
     entities[0];
 
   const registrarEntity = entities.find((entity) =>
@@ -64,7 +65,19 @@ export async function enrichWithRDAP(domainInput: string): Promise<RDAPEnrichmen
     )
   );
 
-  const whoisEmail = parseVcardField(contactEntity?.vcardArray, "email");
+  // Try to find ANY email if the primary contact doesn't have one
+  let whoisEmail = parseVcardField(contactEntity?.vcardArray, "email");
+  if (!whoisEmail) {
+    for (const entity of entities) {
+      if (entity.roles?.includes("registrar")) continue; // Avoid registrar company email
+      const found = parseVcardField(entity.vcardArray, "email");
+      if (found) {
+        whoisEmail = found;
+        break;
+      }
+    }
+  }
+
   const whoisResponsible = parseVcardField(contactEntity?.vcardArray, "fn");
   const domainRegistrar = parseVcardField(registrarEntity?.vcardArray, "fn");
 

@@ -98,3 +98,35 @@ export function nowInRange(start: string, end: string, now = new Date()): boolea
 
   return current >= startMinutes || current <= endMinutes;
 }
+
+const SOCIAL_HOSTS = new Set([
+  "wa.me",
+  "api.whatsapp.com",
+  "chat.whatsapp.com",
+  "instagram.com",
+  "www.instagram.com",
+  "facebook.com",
+  "www.facebook.com",
+  "m.facebook.com",
+  "fb.com",
+  "twitter.com",
+  "x.com",
+  "tiktok.com",
+  "www.tiktok.com",
+  "youtube.com",
+  "www.youtube.com",
+  "youtu.be",
+  "linktr.ee",
+  "bit.ly",
+]);
+
+export function isActualWebsite(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const withProtocol = url.startsWith("http") ? url : `https://${url}`;
+    const host = new URL(withProtocol).hostname.toLowerCase();
+    return !SOCIAL_HOSTS.has(host);
+  } catch {
+    return false;
+  }
+}

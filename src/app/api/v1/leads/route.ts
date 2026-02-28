@@ -98,6 +98,18 @@ export async function GET(req: NextRequest) {
       instagramBiography: true,
       instagramIsBusinessAccount: true,
       instagramExternalUrl: true,
+
+      // New enrichment fields
+      cnpj: true,
+      legalName: true,
+      foundingDate: true,
+      capitalSocial: true,
+      primaryCnae: true,
+      partners: true,
+      hasLinkedin: true,
+      linkedinUrl: true,
+      employeeCountRange: true,
+
       score: true,
       aiClassification: true,
       aiClassificationConfidence: true,
@@ -107,6 +119,8 @@ export async function GET(req: NextRequest) {
       createdAt: true,
       updatedAt: true,
       enrichedAt: true,
+      whoisResponsible: true,
+      whoisEmail: true,
     },
   });
 

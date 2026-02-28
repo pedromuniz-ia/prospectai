@@ -78,14 +78,13 @@ function getClient() {
 }
 
 export async function runGoogleMapsScraper(input: {
-  searchQuery: string;
-  locationQuery: string;
+  searchStrings: string[];
   maxResults: number;
 }): Promise<ExtractedLead[]> {
   const client = getClient();
 
   const run = await client.actor("compass/crawler-google-places").call({
-    searchStringsArray: [`${input.searchQuery} ${input.locationQuery}`],
+    searchStringsArray: input.searchStrings,
     maxCrawledPlacesPerSearch: input.maxResults,
     language: "pt-BR",
     countryCode: "br",

@@ -10,7 +10,12 @@ import { classifyLead } from "@/lib/enrichment/ai-classifier";
 import { enrichWithRDAP } from "@/lib/enrichment/rdap";
 import { scoreLead, type ScoringRuleInput } from "@/lib/enrichment/scorer";
 import { checkWebsite } from "@/lib/enrichment/website-check";
-import { extractDomain, sleep } from "@/lib/helpers";
+import { checkWhatsapp } from "@/lib/enrichment/whatsapp-check";
+import { checkInstagram } from "@/lib/enrichment/instagram-check";
+import { enrichWithCNPJ } from "@/lib/enrichment/cnpj-check";
+import { enrichWithLinkedin } from "@/lib/enrichment/linkedin-check";
+import { whatsappInstances } from "@/db/schema/whatsapp-instances";
+import { extractDomain, isActualWebsite, sleep } from "@/lib/helpers";
 import { getModel } from "@/lib/ai/provider-registry";
 
 const enrichmentJobSchema = z.object({
@@ -59,29 +64,115 @@ export async function processEnrichment(job: Job<EnrichmentJobData>) {
   if (shouldRunRdap) {
     const domain = extractDomain(lead.website);
     if (domain?.endsWith(".com.br")) {
+      console.log(`[enrichment] Running RDAP check for ${domain}`);
       await sleep(3_000);
       const rdap = await enrichWithRDAP(domain);
       patch.whoisEmail = rdap.whoisEmail;
       patch.whoisResponsible = rdap.whoisResponsible;
       patch.domainRegistrar = rdap.domainRegistrar;
       patch.domainCreatedAt = rdap.domainCreatedAt;
+    } else if (domain) {
+      console.log(`[enrichment] Skipping RDAP — Only .com.br supported for now: ${domain}`);
     }
   }
 
+  let foundInstagramUrl: string | null = null;
+
   if (shouldRunWebsite && lead.website) {
+    console.log(`[enrichment] Checking website: ${lead.website}`);
     const website = await checkWebsite(lead.website);
     patch.websiteStatus = website.websiteStatus;
     patch.hasSsl = website.hasSsl;
     patch.email = patch.email ?? website.email ?? lead.email;
     patch.hasWebsite = website.websiteStatus !== "error";
+    patch.linkedinUrl = website.linkedinUrl ?? lead.linkedinUrl;
+    patch.cnpj = website.cnpj ?? lead.cnpj;
+
+    if (website.instagramUrl) {
+      console.log(`[enrichment] Found Instagram URL on website: ${website.instagramUrl}`);
+      foundInstagramUrl = website.instagramUrl;
+    }
+  }
+
+  // CNPJ Enrichment
+  const cnpjToEnrich = patch.cnpj ?? lead.cnpj;
+  if (cnpjToEnrich && (data.type === "full" || data.type === "rdap")) {
+    console.log(`[enrichment] Extracting official data for CNPJ: ${cnpjToEnrich}`);
+    const cnpjData = await enrichWithCNPJ(cnpjToEnrich);
+    patch.legalName = cnpjData.legalName;
+    patch.foundingDate = cnpjData.foundingDate;
+    patch.capitalSocial = cnpjData.capitalSocial;
+    patch.primaryCnae = cnpjData.primaryCnae;
+    patch.partners = cnpjData.partners;
+  }
+
+  // WhatsApp check
+  if (data.type === "full" && lead.phone) {
+    console.log(`[enrichment] Checking WhatsApp for ${lead.phone}`);
+    const instance = await db.query.whatsappInstances.findFirst({
+      where: and(
+        eq(whatsappInstances.organizationId, data.organizationId),
+        eq(whatsappInstances.status, "connected")
+      ),
+    });
+
+    if (instance) {
+      await sleep(1_000);
+      const wa = await checkWhatsapp(lead.phone, instance.instanceName);
+      console.log(`[enrichment] WhatsApp result for ${lead.phone}: ${wa.hasWhatsapp}`);
+      patch.hasWhatsapp = wa.hasWhatsapp;
+      patch.whatsappIsBusinessAccount = wa.isBusinessAccount;
+      patch.whatsappBusinessDescription = wa.businessDescription;
+      patch.whatsappBusinessEmail = wa.businessEmail;
+      patch.whatsappBusinessWebsite = wa.businessWebsite;
+    } else {
+      console.log(`[enrichment] No connected WhatsApp instance for org ${data.organizationId}`);
+    }
+  }
+
+  // Instagram check
+  if (data.type === "full") {
+    const igUrl = lead.website?.includes("instagram.com")
+      ? lead.website
+      : (foundInstagramUrl ?? null);
+
+    if (igUrl) {
+      console.log(`[enrichment] Running Instagram enrichment for: ${igUrl}`);
+      const ig = await checkInstagram(igUrl);
+      patch.hasInstagram = Boolean(ig.username);
+      patch.instagramUsername = ig.username;
+      patch.instagramUrl = ig.profileUrl;
+      patch.instagramFollowers = ig.followersCount;
+      patch.instagramBiography = ig.biography;
+      patch.instagramIsBusinessAccount = ig.isBusinessAccount;
+      patch.instagramExternalUrl = ig.externalUrl;
+    } else {
+      console.log(`[enrichment] No Instagram URL found for lead ${lead.id}`);
+    }
+  }
+
+  // LinkedIn Enrichment
+  const linkedinUrl = patch.linkedinUrl ?? lead.linkedinUrl;
+  if (linkedinUrl && data.type === "full") {
+    console.log(`[enrichment] Scraping LinkedIn profile: ${linkedinUrl}`);
+    const li = await enrichWithLinkedin(linkedinUrl);
+    patch.hasLinkedin = Boolean(li.employeeCountRange);
+    patch.employeeCountRange = li.employeeCountRange;
+    // We could add industry/headquarters if we add them to the schema
+  }
+
+  // Sanitize website field — clear if it's a social/messaging URL
+  if (!isActualWebsite(lead.website)) {
+    patch.website = null;
+    patch.hasWebsite = false;
   }
 
   let scoreResult:
     | {
-        score: number;
-        breakdown: Record<string, number>;
-        explanation: string;
-      }
+      score: number;
+      breakdown: Record<string, number>;
+      explanation: string;
+    }
     | undefined;
 
   if (shouldRunScore) {

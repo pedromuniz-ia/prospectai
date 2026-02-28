@@ -13,6 +13,16 @@ import {
 import { db } from "@/db";
 import { leads } from "@/db/schema/leads";
 import { normalizePhone, safeJsonParse } from "@/lib/helpers";
+import { enrichmentQueue } from "@/lib/queue";
+
+export async function reenrichLead(id: string, organizationId: string) {
+  await enrichmentQueue.add("enrichment-full", {
+    leadId: id,
+    organizationId,
+    type: "full",
+  });
+  return { success: true };
+}
 
 export type LeadFilters = {
   search?: string;

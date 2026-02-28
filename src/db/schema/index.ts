@@ -14,7 +14,7 @@ export { whatsappInstances } from "./whatsapp-instances";
 export { leads } from "./leads";
 export { aiProviders } from "./ai-providers";
 export { scoringRules } from "./scoring-rules";
-export { extractionJobs } from "./extraction-jobs";
+export { extractionJobs, extractionLogs } from "./extraction-jobs";
 export { auditLogs } from "./audit-logs";
 export { notifications } from "./notifications";
 export { apiKeys } from "./api-keys";
