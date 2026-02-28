@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   Brain,
   Building2,
+  Plug,
   Settings2,
   Smartphone,
   Target,
@@ -16,6 +17,7 @@ const settingsTabs = [
   { href: "/settings/whatsapp", label: "WhatsApp", icon: Smartphone },
   { href: "/settings/ai", label: "IA & Modelos", icon: Brain },
   { href: "/settings/scoring", label: "Lead Scoring", icon: Target },
+  { href: "/settings/integrations", label: "Integrações", icon: Plug },
   { href: "/settings/advanced", label: "Avançado", icon: Settings2 },
 ];
 
