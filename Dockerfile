@@ -9,6 +9,9 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Dummy env vars so Next.js can import DB/Redis modules during build without crashing
+ENV TURSO_CONNECTION_URL=file:/tmp/build.db
+ENV REDIS_URL=redis://localhost:6379
 RUN npm run build
 
 FROM node:22-alpine AS runner
