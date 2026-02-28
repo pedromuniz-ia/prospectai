@@ -17,8 +17,10 @@ export function getRuntimeEnvFiles(nodeEnv?: string) {
 export function loadRuntimeEnv(options: LoadRuntimeEnvOptions = {}) {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
-  const files = getRuntimeEnvFiles(options.nodeEnv ?? process.env.NODE_ENV);
+  const nodeEnv = options.nodeEnv ?? process.env.NODE_ENV;
+  const files = getRuntimeEnvFiles(nodeEnv);
 
+  let loaded = false;
   for (const file of files) {
     const fullPath = path.join(cwd, file);
     if (!fs.existsSync(fullPath)) continue;
@@ -28,5 +30,12 @@ export function loadRuntimeEnv(options: LoadRuntimeEnvOptions = {}) {
       processEnv: env,
       override: false,
     });
+    loaded = true;
+  }
+
+  // In production (Docker/Portainer), env vars come from the container
+  // runtime — no .env file is expected inside the image.
+  if (!loaded && nodeEnv === "production") {
+    console.log("[env] Production mode — using container environment variables");
   }
 }

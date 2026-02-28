@@ -1,0 +1,106 @@
+version: "3.9"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ProspectAI — Portainer Stack (cola no editor e preenche os valores)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# Deploy:
+#   1. Portainer → Stacks → Add Stack
+#   2. Cole este conteúdo no Web Editor
+#   3. Preencha os valores reais das env vars abaixo
+#   4. Deploy
+#
+# Atualizar:
+#   Portainer → Stack → Update the stack → ✅ Re-pull image → Update
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+services:
+  app:
+    image: ghcr.io/pedromuniz-ia/prospectai:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - TURSO_CONNECTION_URL=file:/data/prospectai.db
+      - REDIS_URL=redis://prospectai_redis:6379
+      - BETTER_AUTH_SECRET=TROCAR_AQUI
+      - BETTER_AUTH_URL=https://TROCAR_AQUI.com
+      - NEXT_PUBLIC_APP_URL=https://TROCAR_AQUI.com
+      - APIFY_TOKEN=TROCAR_AQUI
+      - EVOLUTION_API_URL=http://TROCAR_AQUI:8080
+      - EVOLUTION_API_KEY=TROCAR_AQUI
+      - ANTHROPIC_API_KEY=TROCAR_AQUI
+      - OPENAI_API_KEY=
+      - GOOGLE_GENERATIVE_AI_API_KEY=
+    volumes:
+      - prospectai-data:/data
+    networks:
+      - swarm_public
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  worker:
+    image: ghcr.io/pedromuniz-ia/prospectai:latest
+    command: npm run worker:prod
+    environment:
+      - NODE_ENV=production
+      - TURSO_CONNECTION_URL=file:/data/prospectai.db
+      - REDIS_URL=redis://prospectai_redis:6379
+      - APIFY_TOKEN=TROCAR_AQUI
+      - EVOLUTION_API_URL=http://TROCAR_AQUI:8080
+      - EVOLUTION_API_KEY=TROCAR_AQUI
+      - ANTHROPIC_API_KEY=TROCAR_AQUI
+      - OPENAI_API_KEY=
+      - GOOGLE_GENERATIVE_AI_API_KEY=
+    healthcheck:
+      disable: true
+    volumes:
+      - prospectai-data:/data
+    networks:
+      - swarm_public
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - prospectai-redis:/data
+    networks:
+      - swarm_public
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+volumes:
+  prospectai-data:
+    driver: local
+  prospectai-redis:
+    driver: local
+
+networks:
+  swarm_public:
+    external: true
+    name: network_swarm_public
