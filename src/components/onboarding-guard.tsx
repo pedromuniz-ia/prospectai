@@ -30,6 +30,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     if (activeOrg.isPending) return;
 
     if (activeOrg.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- needed to gate rendering until org is confirmed
       setChecked(true);
       return;
     }

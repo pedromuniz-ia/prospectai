@@ -76,6 +76,7 @@ describe("i18n translation maps", () => {
   });
 
   it("returns the raw value for unknown keys", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- testing unknown key fallback
     expect(t("leadStatus", "unknown_value" as any)).toBe("unknown_value");
   });
 });

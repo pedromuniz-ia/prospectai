@@ -112,7 +112,7 @@ export default function ExtractionPage() {
 
     setRunning(true);
     try {
-      const config: any = {
+      const config: Record<string, unknown> = {
         maxResults,
       };
 
@@ -270,7 +270,7 @@ export default function ExtractionPage() {
                           ))}
                         </div>
                         <p className="text-zinc-400 text-xs italic">
-                          "Pronto para buscar {parsedData.query} em {parsedData.locations.length} localizações diferentes."
+                          {`Pronto para buscar ${parsedData.query} em ${parsedData.locations.length} localizações diferentes.`}
                         </p>
                       </div>
                     </div>
@@ -512,7 +512,7 @@ export default function ExtractionPage() {
                             </span>
                           </div>
                           <p className="text-xs font-semibold line-clamp-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                            {/* @ts-ignore */}
+                            {/* @ts-expect-error config type is dynamic */}
                             {job.config?.prompt || job.config?.query || "Extração Personalizada"}
                           </p>
                         </div>

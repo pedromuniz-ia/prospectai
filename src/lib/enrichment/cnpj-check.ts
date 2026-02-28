@@ -33,7 +33,7 @@ export async function enrichWithCNPJ(cnpjInput: string): Promise<CNPJEnrichment>
             capitalSocial: typeof data.capital_social === "number" ? data.capital_social : null,
             primaryCnae: data.cnae_fiscal_descricao ?? null,
             partners: Array.isArray(data.qsa)
-                ? data.qsa.map((p: any) => ({
+                ? data.qsa.map((p: Record<string, string>) => ({
                     name: p.nome_socio || p.nome,
                     role: p.qualificacao_socio || "Sócio"
                 }))
