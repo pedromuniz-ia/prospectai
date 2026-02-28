@@ -37,12 +37,10 @@ COPY deploy/entrypoint.sh ./entrypoint.sh
 # Create data directory for SQLite and give ownership to nextjs user
 RUN mkdir -p /data && chown nextjs:nodejs /data
 
+# Non-root user
 USER nextjs
 
 EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
 
 ENTRYPOINT ["sh", "./entrypoint.sh"]
 CMD ["npm", "run", "start"]

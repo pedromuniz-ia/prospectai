@@ -1,18 +1,7 @@
 version: "3.9"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ProspectAI — Portainer Stack (v2 — Mais Robusta)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#
-# Deploy:
-#   1. Portainer → Stacks → Add Stack
-#   2. Cole este conteúdo no Web Editor
-#   3. Preencha os valores reais das env vars abaixo
-#   4. Deploy
-#
-# Atualizar:
-#   Portainer → Stack → Update the stack → ✅ Re-pull image → Update
-#
+# ProspectAI — Portainer Stack (v3 — Final)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 services:
@@ -23,6 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - RUN_MIGRATIONS=true
       - TURSO_CONNECTION_URL=file:/data/prospectai.db
       - REDIS_URL=redis://redis:6379
       - BETTER_AUTH_SECRET=TROCAR_AQUI
@@ -38,16 +28,17 @@ services:
       - prospectai-data:/data
     networks:
       - swarm_public
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       replicas: 1
       resources:
         limits:
           memory: 512M
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        order: start-first
       restart_policy:
         condition: any
         delay: 5s
@@ -57,6 +48,7 @@ services:
     command: npm run worker:prod
     environment:
       - NODE_ENV=production
+      - RUN_MIGRATIONS=false
       - TURSO_CONNECTION_URL=file:/data/prospectai.db
       - REDIS_URL=redis://redis:6379
       - APIFY_TOKEN=TROCAR_AQUI
@@ -69,15 +61,14 @@ services:
       - prospectai-data:/data
     networks:
       - swarm_public
+    # Healthcheck desabilitado explicitamente para o worker
+    healthcheck:
+      test: ["CMD", "exit", "0"]
     deploy:
       replicas: 1
       resources:
         limits:
           memory: 1G
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
       restart_policy:
         condition: any
         delay: 5s
