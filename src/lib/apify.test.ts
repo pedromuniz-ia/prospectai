@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { runGoogleMapsScraper } from "./apify";
 
-// We'll use a real integration test since the user provided a token
-// and asked to validate if the API works as expected.
-describe("Apify Integration (TDD)", () => {
+// Integration test — requires a real APIFY_TOKEN, skip in CI
+const hasToken = !!process.env.APIFY_TOKEN;
+describe.skipIf(!hasToken)("Apify Integration (TDD)", () => {
     it("should successfully fetch leads from Google Maps", async () => {
         // Increase timeout for real API call
         const results = await runGoogleMapsScraper({

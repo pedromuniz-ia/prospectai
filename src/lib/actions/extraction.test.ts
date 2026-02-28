@@ -1,4 +1,24 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
+
+// Mock DB to avoid connecting to a real database in tests
+vi.mock("@/db", () => ({
+  db: {
+    query: {
+      aiProviders: { findFirst: vi.fn().mockResolvedValue(null) },
+      extractionLogs: { findMany: vi.fn().mockResolvedValue([]) },
+    },
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
+// Mock queue to avoid Redis connection
+vi.mock("@/lib/queue", () => ({
+  extractionQueue: { add: vi.fn() },
+}));
+
 import { parseExtractionPrompt } from "./extraction";
 
 describe("Extraction Prompt Parsing (TDD)", () => {
