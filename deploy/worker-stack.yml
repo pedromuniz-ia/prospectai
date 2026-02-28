@@ -7,13 +7,15 @@ services:
     environment:
       - NODE_ENV=production
       - TURSO_CONNECTION_URL=file:/data/prospectai.db
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=redis://redis_redis:6379
       - APIFY_TOKEN=${APIFY_TOKEN}
       - EVOLUTION_API_URL=${EVOLUTION_API_URL}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+    healthcheck:
+      disable: true
     volumes:
       - /opt/prospectai/data:/data
     networks:

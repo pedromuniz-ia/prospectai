@@ -10,6 +10,5 @@ coverage/
 .claude/
 local.db
 local.db-*
-migrations/meta
 .DS_Store
 *.pem
