@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ProspectAI
 
-## Getting Started
+Plataforma B2B de prospecção inteligente. Extrai leads do Google Maps, enriquece com dados multi-fonte (website, WhatsApp, Instagram, RDAP), classifica com IA e gerencia outreach automatizado via WhatsApp.
 
-First, run the development server:
+## Stack
+
+- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS, shadcn/ui
+- **Backend**: Server Actions, Drizzle ORM, Turso (LibSQL/SQLite)
+- **Workers**: BullMQ + Redis para processamento em background
+- **Integrações**: Apify (Google Maps), Evolution API (WhatsApp), Claude/GPT/Gemini (classificação IA)
+- **Deploy**: Docker Swarm, GitHub Actions CI/CD, Cloudflare Tunnel
+
+## Setup Local
+
+### Pré-requisitos
+
+- Node.js 20+
+- Redis (via Docker ou local)
+- Chaves de API (ver `.env.example`)
+
+### Instalação
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Instalar dependências
+npm install
+
+# Copiar variáveis de ambiente
+cp .env.example .env.local
+# Editar .env.local com suas chaves
+
+# Subir Redis
+docker compose up redis -d
+
+# Aplicar migrations do banco
+npx drizzle-kit migrate
+
+# Rodar em dois terminais
+npm run dev          # Next.js (porta 3000)
+npm run worker       # BullMQ workers
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Comando | Descrição |
+| ------- | --------- |
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` | Build de produção |
+| `npm run worker` | Workers BullMQ (watch mode) |
+| `npm run worker:prod` | Workers BullMQ (produção) |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest |
+| `npx drizzle-kit generate` | Gerar migration a partir do schema |
+| `npx drizzle-kit migrate` | Aplicar migrations pendentes |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Arquitetura
 
-## Learn More
+```text
+Browser → Next.js Server Components / Server Actions
+  → Drizzle ORM → Turso (SQLite)
+  → Redis BullMQ → Workers
+  → APIs externas: Apify, Evolution API, LLMs
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Workers
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Worker | Função |
+| ------ | ------ |
+| `extraction` | Extrai resultados do Google Maps via Apify |
+| `enrichment` | Pipeline: website → WhatsApp → Instagram → RDAP → IA → score |
+| `cadence` | Processa sequências de mensagens agendadas |
+| `ai-reply` | Gera respostas automáticas para mensagens WhatsApp |
+| `message-send` | Envia mensagens WhatsApp via Evolution API |
+| `scheduler` | Cron: alimenta fila de cadência, reset de contadores, warmup |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy
 
-## Deploy on Vercel
+Deploy via Docker Swarm com CI/CD automatizado:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push na `main` → GitHub Actions roda testes + build
+2. Imagem Docker publicada no GHCR
+3. Deploy automático na VPS via SSH + `docker service update`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Stack files em `deploy/` para uso com Portainer.
+
+## Licença
+
+Proprietário. Todos os direitos reservados.
