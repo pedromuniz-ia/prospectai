@@ -35,56 +35,61 @@ export async function enrichWithRDAP(domainInput: string): Promise<RDAPEnrichmen
   const domain = extractDomain(domainInput);
   if (!domain || !domain.endsWith(".com.br")) return emptyResult;
 
-  const response = await fetch(`https://rdap.registro.br/domain/${domain}`, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(10_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://rdap.registro.br/domain/${domain}`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return emptyResult;
+  }
 
   if (!response.ok) return emptyResult;
 
-  const payload = (await response.json()) as {
-    entities?: Array<{ vcardArray?: unknown; roles?: string[] }>;
-    events?: Array<{ eventAction?: string; eventDate?: string }>;
-  };
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch {
+    return emptyResult;
+  }
 
-  const entities = payload.entities ?? [];
+  const entities: any[] = payload.entities ?? [];
 
-  const contactEntity =
-    entities.find((entity) => entity.roles?.includes("registrant")) ??
-    entities.find((entity) => entity.roles?.includes("administrative")) ??
-    entities.find((entity) => entity.roles?.includes("billing")) ??
-    entities[0];
+  let whoisEmail: string | null = null;
+  let whoisResponsible: string | null = null;
+  let domainRegistrar: string | null = null;
 
-  const registrarEntity = entities.find((entity) =>
-    entity.roles?.includes("registrar")
-  );
-
-  const creationEvent = payload.events?.find((event) =>
+  const creationEvent = payload.events?.find((event: any) =>
     ["registration", "registered", "creation"].includes(
       (event.eventAction ?? "").toLowerCase()
     )
   );
 
-  // Try to find ANY email if the primary contact doesn't have one
-  let whoisEmail = parseVcardField(contactEntity?.vcardArray, "email");
-  if (!whoisEmail) {
-    for (const entity of entities) {
-      if (entity.roles?.includes("registrar")) continue; // Avoid registrar company email
-      const found = parseVcardField(entity.vcardArray, "email");
-      if (found) {
-        whoisEmail = found;
-        break;
+  // Parse according to the extension logic (checking nested entities)
+  for (const entity of entities) {
+    // 1. Look in nested entities first
+    if (entity.entities && Array.isArray(entity.entities)) {
+      for (const nestedEntity of entity.entities) {
+        if (!whoisEmail) whoisEmail = parseVcardField(nestedEntity.vcardArray, "email");
+        if (!whoisResponsible) whoisResponsible = parseVcardField(nestedEntity.vcardArray, "fn");
       }
     }
-  }
 
-  const whoisResponsible = parseVcardField(contactEntity?.vcardArray, "fn");
-  const domainRegistrar = parseVcardField(registrarEntity?.vcardArray, "fn");
+    // 2. Look in the main entity
+    if (!whoisEmail) whoisEmail = parseVcardField(entity.vcardArray, "email");
+    if (!whoisResponsible) whoisResponsible = parseVcardField(entity.vcardArray, "fn");
+
+    // Check if this is the registrar
+    if (entity.roles?.includes("registrar") && !domainRegistrar) {
+      domainRegistrar = parseVcardField(entity.vcardArray, "fn");
+    }
+  }
 
   return {
     whoisEmail,
     whoisResponsible,
-    domainRegistrar,
+    domainRegistrar: domainRegistrar ?? null,
     domainCreatedAt: creationEvent?.eventDate ?? null,
   };
 }

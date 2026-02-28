@@ -46,26 +46,39 @@ async function fetchPage(url: string) {
     redirect: "follow",
     signal: AbortSignal.timeout(7_000),
     headers: {
-      "User-Agent": "ProspectAI/1.0 (+https://prospectai.local)",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     },
   });
 }
 
 function parseEmail(html: string): string | null {
-  const matches = html.match(EMAIL_REGEX);
-  if (!matches?.length) return null;
+  try {
+    const s = String(html);
 
-  // Unique list of valid emails
-  const candidates = Array.from(new Set(matches.map((e) => e.toLowerCase())));
+    // Check for explicit mailto links first (usually higher quality than random text matches)
+    const mailtoMatch = s.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+    if (mailtoMatch && mailtoMatch[1]) {
+      const email = mailtoMatch[1].toLowerCase();
+      const domain = email.split("@")[1];
+      if (!IGNORED_EMAIL_DOMAINS.includes(domain)) return email;
+    }
 
-  const filtered = candidates.filter((email) => {
-    const domain = email.split("@")[1];
-    return !IGNORED_EMAIL_DOMAINS.includes(domain);
-  });
+    const matches = s.match(EMAIL_REGEX);
+    if (!matches?.length) return null;
 
-  // Prioritize emails that don't look like tech support or generic info if possible
-  // but return the first valid one if not.
-  return filtered[0] ?? null;
+    // Unique list of valid emails
+    const candidates = Array.from(new Set(matches.map((e) => e.toLowerCase())));
+
+    const filtered = candidates.filter((email) => {
+      const domain = email.split("@")[1];
+      return !IGNORED_EMAIL_DOMAINS.includes(domain);
+    });
+
+    return filtered[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function parseInstagram(html: string): string | null {
