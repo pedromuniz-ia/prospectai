@@ -4,7 +4,8 @@ import IORedis from "ioredis";
 import { processExtraction } from "./workers/extraction";
 import { processEnrichment } from "./workers/enrichment";
 
-const connection = new IORedis(process.env.REDIS_URL!, {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ioredis version mismatch between bullmq's bundled copy and top-level
+const connection: any = new IORedis(process.env.REDIS_URL!, {
   maxRetriesPerRequest: null,
 });
 
