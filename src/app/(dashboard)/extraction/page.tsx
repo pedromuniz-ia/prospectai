@@ -112,18 +112,18 @@ export default function ExtractionPage() {
 
     setRunning(true);
     try {
-      const config: Record<string, unknown> = {
-        maxResults,
-      };
-
-      if (magicMode && parsedData) {
-        config.prompt = prompt;
-        config.searchStrings = parsedData.locations.map(l => `${parsedData.query} em ${l}`);
-      } else {
-        config.query = query.trim();
-        config.city = city.trim();
-        config.state = state.trim().toUpperCase();
-      }
+      const config = magicMode && parsedData
+        ? {
+            maxResults,
+            prompt,
+            searchStrings: parsedData.locations.map(l => `${parsedData.query} em ${l}`),
+          }
+        : {
+            maxResults,
+            query: query.trim(),
+            city: city.trim(),
+            state: state.trim().toUpperCase(),
+          };
 
       await startExtraction(organizationId, config);
       toast.success("Extração iniciada com sucesso.");
