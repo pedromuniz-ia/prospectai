@@ -47,20 +47,34 @@ export async function enrichWithRDAP(domainInput: string): Promise<RDAPEnrichmen
 
   if (!response.ok) return emptyResult;
 
-  let payload: any;
+  let payload: {
+    entities?: Array<{
+      roles?: string[];
+      vcardArray?: unknown;
+      entities?: Array<{
+        roles?: string[];
+        vcardArray?: unknown;
+      }>;
+    }>;
+    events?: Array<{
+      eventAction?: string;
+      eventDate?: string;
+    }>;
+  };
+
   try {
     payload = await response.json();
   } catch {
     return emptyResult;
   }
 
-  const entities: any[] = payload.entities ?? [];
+  const entities = payload.entities ?? [];
 
   let whoisEmail: string | null = null;
   let whoisResponsible: string | null = null;
   let domainRegistrar: string | null = null;
 
-  const creationEvent = payload.events?.find((event: any) =>
+  const creationEvent = payload.events?.find((event) =>
     ["registration", "registered", "creation"].includes(
       (event.eventAction ?? "").toLowerCase()
     )
