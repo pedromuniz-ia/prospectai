@@ -15,7 +15,7 @@ import {
   RankBadge,
   ClassificationBadge,
 } from "./columns";
-import { StatusBadge } from "@/components/ds";
+import { FormField, LoadingButton, StatusBadge } from "@/components/ds";
 import {
   ExternalLink,
   Globe,
@@ -32,12 +32,23 @@ import {
   Clock,
   RefreshCcw,
   Plus,
+  Pencil,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/helpers";
 import { Button } from "@/components/ui/button";
-import { reenrichLead } from "@/lib/actions/leads";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { reenrichLead, updateLead } from "@/lib/actions/leads";
+import { entries } from "@/lib/i18n";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type LeadDetail = NonNullable<Awaited<ReturnType<typeof getLead>>>;
 
@@ -566,6 +577,240 @@ function TabIntelligence({ lead }: { lead: LeadDetail }) {
 }
 
 // ---------------------------------------------------------------------------
+// Tab: Editar
+// ---------------------------------------------------------------------------
+
+interface EditFormState {
+  name: string;
+  phone: string;
+  phoneSecondary: string;
+  email: string;
+  website: string;
+  address: string;
+  city: string;
+  state: string;
+  neighborhood: string;
+  zipCode: string;
+  category: string;
+  subcategory: string;
+  status: string;
+  lostReason: string;
+  doNotContact: boolean;
+}
+
+function leadToEditForm(lead: LeadDetail): EditFormState {
+  return {
+    name: lead.name ?? "",
+    phone: lead.phone ?? "",
+    phoneSecondary: lead.phoneSecondary ?? "",
+    email: lead.email ?? "",
+    website: lead.website ?? "",
+    address: lead.address ?? "",
+    city: lead.city ?? "",
+    state: lead.state ?? "",
+    neighborhood: lead.neighborhood ?? "",
+    zipCode: lead.zipCode ?? "",
+    category: lead.category ?? "",
+    subcategory: lead.subcategory ?? "",
+    status: lead.status ?? "new",
+    lostReason: lead.lostReason ?? "",
+    doNotContact: lead.doNotContact ?? false,
+  };
+}
+
+function TabEdit({
+  lead,
+  onSaved,
+}: {
+  lead: LeadDetail;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<EditFormState>(() => leadToEditForm(lead));
+
+  useEffect(() => {
+    setForm(leadToEditForm(lead));
+  }, [lead]);
+
+  const set = (field: keyof EditFormState, value: string | boolean) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error("O nome do lead é obrigatório");
+      return;
+    }
+
+    await updateLead(lead.id, {
+      name: form.name.trim(),
+      phone: form.phone.trim() || null,
+      phoneSecondary: form.phoneSecondary.trim() || null,
+      email: form.email.trim() || null,
+      website: form.website.trim() || null,
+      address: form.address.trim() || null,
+      city: form.city.trim() || null,
+      state: form.state.trim() || null,
+      neighborhood: form.neighborhood.trim() || null,
+      zipCode: form.zipCode.trim() || null,
+      category: form.category.trim() || null,
+      subcategory: form.subcategory.trim() || null,
+      status: form.status as "new",
+      lostReason: form.lostReason.trim() || null,
+      doNotContact: form.doNotContact,
+    });
+
+    toast.success("Lead atualizado com sucesso");
+    onSaved();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Nome" htmlFor="edit-name" required>
+          <Input
+            id="edit-name"
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Telefone" htmlFor="edit-phone">
+          <Input
+            id="edit-phone"
+            type="tel"
+            value={form.phone}
+            onChange={(e) => set("phone", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Telefone secundário" htmlFor="edit-phone2">
+          <Input
+            id="edit-phone2"
+            type="tel"
+            value={form.phoneSecondary}
+            onChange={(e) => set("phoneSecondary", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Email" htmlFor="edit-email">
+          <Input
+            id="edit-email"
+            type="email"
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Website" htmlFor="edit-website" className="sm:col-span-2">
+          <Input
+            id="edit-website"
+            value={form.website}
+            onChange={(e) => set("website", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Endereço" htmlFor="edit-address" className="sm:col-span-2">
+          <Input
+            id="edit-address"
+            value={form.address}
+            onChange={(e) => set("address", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Cidade" htmlFor="edit-city">
+          <Input
+            id="edit-city"
+            value={form.city}
+            onChange={(e) => set("city", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Estado" htmlFor="edit-state">
+          <Input
+            id="edit-state"
+            value={form.state}
+            onChange={(e) => set("state", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Bairro" htmlFor="edit-neighborhood">
+          <Input
+            id="edit-neighborhood"
+            value={form.neighborhood}
+            onChange={(e) => set("neighborhood", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="CEP" htmlFor="edit-zip">
+          <Input
+            id="edit-zip"
+            value={form.zipCode}
+            onChange={(e) => set("zipCode", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Categoria" htmlFor="edit-category">
+          <Input
+            id="edit-category"
+            value={form.category}
+            onChange={(e) => set("category", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Subcategoria" htmlFor="edit-subcategory">
+          <Input
+            id="edit-subcategory"
+            value={form.subcategory}
+            onChange={(e) => set("subcategory", e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Status" htmlFor="edit-status">
+          <Select value={form.status} onValueChange={(v) => set("status", v)}>
+            <SelectTrigger id="edit-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {entries("leadStatus").map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+
+        {form.status === "lost" && (
+          <FormField label="Motivo da perda" htmlFor="edit-lost-reason">
+            <Input
+              id="edit-lost-reason"
+              value={form.lostReason}
+              onChange={(e) => set("lostReason", e.target.value)}
+            />
+          </FormField>
+        )}
+
+        <FormField label="Não contatar" htmlFor="edit-dnc" className="sm:col-span-2">
+          <div className="flex items-center gap-2 pt-1">
+            <Switch
+              id="edit-dnc"
+              checked={form.doNotContact}
+              onCheckedChange={(v) => set("doNotContact", v)}
+            />
+            <span className="text-sm text-muted-foreground">
+              {form.doNotContact ? "Bloqueado" : "Permitido"}
+            </span>
+          </div>
+        </FormField>
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-border/30 pt-4">
+        <LoadingButton onClick={handleSave}>Salvar alterações</LoadingButton>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -698,6 +943,10 @@ export function LeadDetailModal({
                   <TabsTrigger value="intelligence" className="px-4">
                     Inteligência IA
                   </TabsTrigger>
+                  <TabsTrigger value="edit" className="px-4">
+                    <Pencil className="mr-1.5 h-3 w-3" />
+                    Editar
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -710,6 +959,14 @@ export function LeadDetailModal({
                 </TabsContent>
                 <TabsContent value="intelligence">
                   <TabIntelligence lead={lead} />
+                </TabsContent>
+                <TabsContent value="edit">
+                  <TabEdit
+                    lead={lead}
+                    onSaved={async () => {
+                      if (onRefresh) await onRefresh();
+                    }}
+                  />
                 </TabsContent>
               </div>
             </Tabs>

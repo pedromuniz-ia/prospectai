@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Filter,
+  Plus,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/actions/leads";
 import { LeadsDataTable } from "@/app/(dashboard)/leads/data-table";
 import { LeadDetailModal } from "@/app/(dashboard)/leads/lead-detail-modal";
+import { LeadFormDialog } from "@/app/(dashboard)/leads/lead-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,6 +60,7 @@ function LeadsPageContent() {
   const [selected, setSelected] = useState<string[]>([]);
   const [leadDetails, setLeadDetails] = useState<Awaited<ReturnType<typeof getLead>> | null>(null);
   const [filterOptions, setFilterOptions] = useState<{ categories: string[]; cities: string[] }>({ categories: [], cities: [] });
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const page = Number(searchParams.get("page") ?? "1");
   const pageSize = Number(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE));
@@ -167,6 +170,15 @@ function LeadsPageContent() {
                 Qualifique, priorize e exporte oportunidades.
               </p>
             </div>
+
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowCreateDialog(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Novo Lead
+            </Button>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -399,6 +411,15 @@ function LeadsPageContent() {
           await Promise.all([loadLeads(), loadLeadDetails()]);
         }}
       />
+
+      {organizationId && (
+        <LeadFormDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          organizationId={organizationId}
+          onCreated={loadLeads}
+        />
+      )}
     </div>
   );
 }
