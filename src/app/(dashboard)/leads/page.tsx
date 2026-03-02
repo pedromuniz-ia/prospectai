@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import {
+  deleteLeads,
   getFilterOptions,
   getLead,
   getLeads,
@@ -324,12 +325,16 @@ function LeadsPageContent() {
             onOpenLead={(nextLeadId) => setParams({ leadId: nextLeadId })}
             onReenrich={async (ids) => {
               if (ids.length === 0) return;
-              // Assuming all leads on this page belong to the same organization
-              // We can get organizationId from any lead in the rows
               const organizationId = rows[0]?.organizationId;
               if (!organizationId) return;
 
               await Promise.all(ids.map(id => reenrichLead(id, organizationId)));
+            }}
+            onDelete={async (ids) => {
+              if (ids.length === 0) return;
+              await deleteLeads(ids);
+              setSelected((prev) => prev.filter((id) => !ids.includes(id)));
+              await loadLeads();
             }}
             onRefresh={async () => {
               await loadLeads();

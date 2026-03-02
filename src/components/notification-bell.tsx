@@ -40,7 +40,7 @@ const iconByType: Record<NotificationType, React.ComponentType<{ className?: str
 const hrefByType: Record<NotificationType, (entityId?: string | null) => string> = {
   lead_replied: (entityId) => entityId ? `/leads?leadId=${entityId}` : "/leads",
   campaign_paused: () => "/leads",
-  instance_disconnected: () => "/settings/whatsapp",
+  instance_disconnected: () => "/settings",
   ai_needs_review: (entityId) => entityId ? `/leads?leadId=${entityId}` : "/leads",
   extraction_complete: () => "/extraction",
 };

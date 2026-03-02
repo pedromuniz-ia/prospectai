@@ -194,17 +194,23 @@ export async function updateLead(
 }
 
 export async function deleteLead(id: string) {
-  const [updated] = await db
-    .update(leads)
-    .set({
-      doNotContact: true,
-      status: "blocked",
-      updatedAt: new Date(),
-    })
+  const [deleted] = await db
+    .delete(leads)
     .where(eq(leads.id, id))
     .returning();
 
-  return updated;
+  return deleted;
+}
+
+export async function deleteLeads(ids: string[]) {
+  if (ids.length === 0) return [];
+
+  const deleted = await db
+    .delete(leads)
+    .where(inArray(leads.id, ids))
+    .returning({ id: leads.id });
+
+  return deleted;
 }
 
 export async function getFilterOptions(organizationId: string) {

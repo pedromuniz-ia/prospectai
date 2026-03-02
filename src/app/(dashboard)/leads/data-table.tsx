@@ -8,6 +8,8 @@ import {
   SlidersHorizontal,
   ExternalLink,
   RefreshCcw,
+  Trash2,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   ScoreBadge,
@@ -41,6 +43,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { isActualWebsite } from "@/lib/helpers";
 import { toast } from "sonner";
 
@@ -221,6 +233,7 @@ export function LeadsDataTable({
   onOpenLead,
   onReenrich,
   onRefresh,
+  onDelete,
 }: {
   leads: LeadRow[];
   selected: string[];
@@ -229,10 +242,12 @@ export function LeadsDataTable({
   onOpenLead: (leadId: string) => void;
   onReenrich?: (leadIds: string[]) => Promise<void>;
   onRefresh?: () => Promise<void>;
+  onDelete?: (leadIds: string[]) => Promise<void>;
 }) {
   const [columns, setColumns] = useState<Record<ColumnId, boolean>>(DEFAULT_COLUMNS);
   const [loadingAction, setLoadingAction] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string[] | null>(null);
 
   useEffect(() => {
     setColumns(loadColumnVisibility());
@@ -270,6 +285,24 @@ export function LeadsDataTable({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete || !deleteTarget || deleteTarget.length === 0) return;
+    setLoadingAction(true);
+    try {
+      await onDelete(deleteTarget);
+      toast.success(
+        deleteTarget.length === 1
+          ? "Lead removido com sucesso"
+          : `${deleteTarget.length} leads removidos com sucesso`
+      );
+    } catch {
+      toast.error("Erro ao remover leads");
+    } finally {
+      setLoadingAction(false);
+      setDeleteTarget(null);
+    }
+  };
+
   const col = (id: ColumnId) => columns[id];
 
   if (leads.length === 0) {
@@ -303,6 +336,19 @@ export function LeadsDataTable({
             >
               <RefreshCcw className={`h-3 w-3 ${loadingAction ? "animate-spin" : ""}`} />
               Re-enriquecer
+            </Button>
+          )}
+
+          {selected.length > 0 && onDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-[11px] border-destructive/20 bg-destructive/5 hover:bg-destructive/10 text-destructive transition-all"
+              onClick={() => setDeleteTarget(selected)}
+              disabled={loadingAction}
+            >
+              <Trash2 className="h-3 w-3" />
+              Remover ({selected.length})
             </Button>
           )}
         </div>
@@ -517,25 +563,64 @@ export function LeadsDataTable({
                 )}
 
                 <TableCell className="pr-4">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => onOpenLead(lead.id)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <MoveRight className="h-4 w-4" />
+                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Ver detalhes</TooltipContent>
-                  </Tooltip>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onOpenLead(lead.id)}>
+                        <MoveRight className="mr-2 h-3.5 w-3.5" />
+                        Ver detalhes
+                      </DropdownMenuItem>
+                      {onDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget([lead.id])}
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Remover lead
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover {deleteTarget?.length === 1 ? "lead" : "leads"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.length === 1
+                ? "Tem certeza que deseja remover este lead? Esta ação não pode ser desfeita."
+                : `Tem certeza que deseja remover ${deleteTarget?.length} leads? Esta ação não pode ser desfeita.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loadingAction}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={loadingAction}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {loadingAction ? "Removendo..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

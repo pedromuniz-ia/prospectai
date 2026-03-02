@@ -80,7 +80,7 @@ export function CommandPalette() {
       {
         label: "Conectar WhatsApp",
         icon: Smartphone,
-        action: () => router.push("/settings/whatsapp"),
+        action: () => router.push("/settings"),
       },
     ],
     [router]
